@@ -67,10 +67,7 @@ int lcore_send_pkt(struct lcore_params *p)
 
             //init udp payload
             struct SRoU obj = {
-                .magic_num = 1,
-                .srou_length = 4,
-                .flags = 0xFF,
-                .next_protcol = 0,
+                .heartbeat_id = 1,
             };
             struct SRoU *msg;
 
