@@ -96,7 +96,7 @@ int lcore_send_pkt(struct lcore_params *p)
             }
         }
 
-        printf("Sender: %u packets were sent in this burst\n");
+        printf("Sender: %u packets were sent in this burst\n", sent);
          
     }
 
