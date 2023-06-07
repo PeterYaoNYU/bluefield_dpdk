@@ -95,6 +95,8 @@ int lcore_send_pkt(struct lcore_params *p)
                 rte_pktmbuf_free(pkts[sent++]);
             }
         }
+
+        printf("Sender: %u packets were sent in this burst\n");
          
     }
 
