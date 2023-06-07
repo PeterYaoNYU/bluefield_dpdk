@@ -1,4 +1,5 @@
 #include "common.h"
 
-rte_be32_t string_to_ip(char *s)
-int lcore_send_heartbeat_pkt(struct lcore_params *p, uint64_t hb_id)
+int lcore_send_heartbeat_pkt(struct lcore_params *p, uint64_t hb_id);
+
+__rte_noreturn int lcore_mainloop_send_heartbeat(struct lcore_params *p);

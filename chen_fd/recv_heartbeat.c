@@ -1,24 +1,29 @@
-#inlcude "recv_heartbeat.h"
+#include "recv_heartbeat.h"
+#include <rte_ether.h>
+#include <rte_ip.h>
+#include <rte_udp.h>
 
 
 static void
-timer1_cb(__rte_unused struct rte_timer *tim,
-	  __rte_unused void *arg)
+timer1_cb(struct rte_timer *tim, void *arg)
 {
 	unsigned lcore_id = rte_lcore_id();
 
 	printf("the other side suspected to be dead\n");
 
-	rte_timer_reset(tim, fdinfo->ea - receipt_time, SINGLE, lcore_id, timer1_cb, NULL);
+	// rewire the timer even for the suspected node
+	uint64_t rewired_amount = (uint64_t) arg;
+
+	rte_timer_reset(tim, rewired_amount, SINGLE, lcore_id, timer1_cb, (void *)rewired_amount);
 }
 
 // int lcore_recv_heartbeat_pkt(struct lcore_params *p, struct fd_info * fdinfo, struct rte_timer * tim)
-int lcore_recv_heartbeat_pkt(struct recv_arg)
+int lcore_recv_heartbeat_pkt(struct recv_arg recv_arg)
 {
 	// first, unpack the arguments from recv_arg
-	struct lcore_params *p = recv_arg->p;
-	struct fd_info * fdinfo = recv_arg->fdinfo;
-	struct rte_timer * tim = recv_arg->t;
+	struct lcore_params *p = recv_arg.p;
+	struct fd_info * fdinfo = recv_arg.fdinfo;
+	struct rte_timer * tim = recv_arg.t;
 
 	const int socket_id = rte_socket_id();
 
@@ -42,13 +47,13 @@ int lcore_recv_heartbeat_pkt(struct recv_arg)
 		printf("received %u packets in this burst\n", nb_rx);
 		uint16_t i;
 		for (i = 0; i < nb_rx; i++){
-            struct rte_mbud *pkt = bufs[i];
+            struct rte_mbuf *pkt = bufs[i];
 
             // unwrap the ethernet layer header
             struct ether_hdr *eth_hdr = rte_pktmbuf_mtod(pkt, struct ether_hdr *);
             
             // if this is indeed an IP packet
-            if (ether_hdr->ether_type == rte_cpu_to_be_16(RTE_ETHER_TYPE_IPV4) ){
+            if (eth_hdr->ether_type == rte_cpu_to_be_16(RTE_ETHER_TYPE_IPV4) ){
 				struct ipv4_hdr * ip_hdr = (struct ipv4_hdr *)(eth_hdr + 1);
 				// if this is a UDP packet and is intended for me and is from someone that I am expecting...
 				if ((ip_hdr->next_proto_id == IPPROTO_UDP) && (ip_hdr->src_addr == string_to_ip(NODE_2_IP)) && (ip_hdr->dst_addr == string_to_ip(NODE_1_IP)) ){
@@ -67,25 +72,25 @@ int lcore_recv_heartbeat_pkt(struct recv_arg)
 						// increment the next_avail variable 
 						fdinfo->next_avail = (fdinfo -> next_avail + 1) % HEARTBEAT_N;
 
-						if (unnlikely(obj->heartbeat_id == HEARTBEAT_N)) {
+						if (unlikely(obj->heartbeat_id == HEARTBEAT_N)) {
 							uint16_t i;
 							uint64_t moving_sum;
 							struct hb_timestamp hb;
-							for (i = next_evicted; i < next_avail; i++){
+							for (i = fdinfo->next_evicted; i < fdinfo->next_avail; i++){
 								hb = fdinfo->arr_timestamp[i];
 								moving_sum += (hb.hb_timestamp - hb.heartbeat_id * fdinfo->delta_i);
 							}
 							fdinfo->ea = moving_sum / HEARTBEAT_N + (HEARTBEAT_N+1) * (fdinfo->delta_i);
 						} else {
 							// calculate the new estimeated arrival time 
-							fdinfo->ea = fdinfo->ea + ((receipt_time - arr_timestamp[fdinfo->next_evicted]) / HEARTBEAT_N)
-							printf("FD: %llu th HB arriving, at time %llu, esti: %llu\n", obj->heartbeat_id, receipt_time, fdinfo->ea);
+							fdinfo->ea = fdinfo->ea + ((receipt_time - (fdinfo->arr_timestamp[fdinfo->next_evicted]).hb_timestamp) / HEARTBEAT_N);
+							printf("FD: %lu th HB arriving, at time %lu, esti: %lu\n", obj->heartbeat_id, receipt_time, fdinfo->ea);
 
 							// update the next_evicted variable
-							fdinfo->next_evicted = (fdinfo -> next_evicted + 1) % HEARTBEAT_N;
+							fdinfo->next_evicted = (fdinfo->next_evicted + 1) % HEARTBEAT_N;
 							
 							// rewire the timer to the next estimation of the arrival time
-							rte_timer_reset(tim, fdinfo->ea - receipt_time, SINGLE, lcore_id, timer1_cb, NULL);
+							rte_timer_reset(tim, fdinfo->ea - receipt_time, SINGLE, lcore_id, timer1_cb, (void *)(fdinfo->ea - receipt_time));
 						}
 
 					}

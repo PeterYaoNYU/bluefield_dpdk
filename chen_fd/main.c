@@ -6,11 +6,11 @@
 #include <string.h>
 
 #include "port_init.h"
-#include "send_heartbeat.h"
 #include "recv_heartbeat.h"
+#include "send_heartbeat.h"
 
 // this is the timer used by the recv loop
-static struct rte_timer timer0;
+struct rte_timer timer0;
 
 int main(int argc, char *argv[])
 {
@@ -47,7 +47,7 @@ int main(int argc, char *argv[])
     };
     
     // clear the last N arrival timestamp history
-    memset(fdinfo->arr_timestamp, 0, sizeof(struct hb_timestamp) * (HEARTBEAT_N + 2));
+    memset(fdinfo.arr_timestamp, 0, sizeof(struct hb_timestamp) * (HEARTBEAT_N + 2));
 
     // init the RTE timer library
     rte_timer_subsystem_init();
@@ -67,9 +67,9 @@ int main(int argc, char *argv[])
         // pack everything into a recv_arg structure
         struct recv_arg recv_arg = {
             .p = lp_rx[i],
-            .fdinfo = fdinfo,
+            .fdinfo = &fdinfo,
             .t = &timer0
-        }
+        };
         rte_eal_remote_launch((lcore_function_t *)lcore_recv_heartbeat_pkt, lp_rx[i], lcore_num++);
     }
 

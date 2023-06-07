@@ -71,7 +71,7 @@ struct payload{
 struct hb_timestamp {
     uint64_t heartbeat_id;
     uint64_t hb_timestamp;
-}
+};
 
 struct fd_info {
     // heartbeat interval in melli-second
@@ -93,10 +93,24 @@ struct fd_info {
 // it should be a collection of fd_info, lcore_params, and a timer, all three are pointers
 // to the corresponding structure
 struct recv_arg {
-    lcore_params * p;
-    fd_info * fdinfo;
+    struct lcore_params * p;
+    struct fd_info * fdinfo;
     struct rte_timer * t;
-}
+};
 
+rte_be32_t string_to_ip(char *s)
+{
+    unsigned char a[4];
+    int rc = sscanf(s, "%hhd.%hhd.%hhd.%hhd", a + 0, a + 1, a + 2, a + 3);
+    if (rc != 4)
+    {
+        fprintf(stderr, "bad source IP address format. Use like: 1.1.1.1\n");
+        exit(1);
+    }
+    return (rte_be32_t)(a[3]) << 24 |
+           (rte_be32_t)(a[2]) << 16 |
+           (rte_be32_t)(a[1]) << 8 |
+           (rte_be32_t)(a[0]);
+}
 
 #endif
