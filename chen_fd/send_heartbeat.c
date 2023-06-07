@@ -1,5 +1,28 @@
 #include "send_heartbeat.h"
 
+
+// mainloop should be done either through sleeping or through a timer interrupt 
+// use __rte_noreturn macro should lead to more optimized code  
+__rte_noreturn int
+lcore_mainloop_send_heartbeat(struct lcore_params *p)
+{
+	uint64_t prev_tsc = 0, cur_tsc, diff_tsc;
+	unsigned lcore_id;
+
+	lcore_id = rte_lcore_id();
+	printf("Starting mainloop of sending heartbeat on core %u\n", lcore_id);
+
+    uint64_t hb_id = 1;
+
+	/* Main loop. 8< */
+	while (1) {
+        lcore_send_heartbeat_pkt(p, hb_id);
+        hb_id++;
+        rte_delay_us_sleep(DELTA_I * 1000);
+	}
+	/* >8 End of main loop. */
+}
+
 rte_be32_t string_to_ip(char *s)
 {
     unsigned char a[4];

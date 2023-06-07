@@ -12,8 +12,14 @@ timer1_cb(__rte_unused struct rte_timer *tim,
 	rte_timer_reset(tim, fdinfo->ea - receipt_time, SINGLE, lcore_id, timer1_cb, NULL);
 }
 
-int lcore_recv_heartbeat_pkt(struct lcore_params *p, struct fd_info * fdinfo, struct rte_timer * tim)
+// int lcore_recv_heartbeat_pkt(struct lcore_params *p, struct fd_info * fdinfo, struct rte_timer * tim)
+int lcore_recv_heartbeat_pkt(struct recv_arg)
 {
+	// first, unpack the arguments from recv_arg
+	struct lcore_params *p = recv_arg->p;
+	struct fd_info * fdinfo = recv_arg->fdinfo;
+	struct rte_timer * tim = recv_arg->t;
+
 	const int socket_id = rte_socket_id();
 
 	unsigned lcore_id = rte_lcore_id();
@@ -25,6 +31,9 @@ int lcore_recv_heartbeat_pkt(struct lcore_params *p, struct fd_info * fdinfo, st
 		struct rte_mbuf *bufs[BURST_SIZE];
 		uint16_t nb_rx = rte_eth_rx_burst(0, p->rx_queue_id, bufs, BURST_SIZE);
 		// printf("received %u packets in this burst\n", nb_rx);
+
+		// update the states of all timers in the skip list, check for expiration
+		rte_timer_manage();
 
 		if (nb_rx == 0){
 			continue;

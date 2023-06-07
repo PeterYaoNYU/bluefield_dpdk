@@ -53,6 +53,8 @@
 // the port that I am expecting to receive the other node's heartbeat from
 #define HB_SRC_PORT 6666
 
+// the heartbeat interval defined here, in millisecond. 
+#define DELTA_I 100
 
 struct lcore_params {
     uint16_t rx_queue_id;
@@ -86,6 +88,15 @@ struct fd_info {
     uint16_t next_evicted;
     uint16_t next_avail;
 };
+
+// the structure that is passed to the recv loop function as a parameter
+// it should be a collection of fd_info, lcore_params, and a timer, all three are pointers
+// to the corresponding structure
+struct recv_arg {
+    lcore_params * p;
+    fd_info * fdinfo;
+    struct rte_timer * t;
+}
 
 
 #endif
