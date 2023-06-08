@@ -1,7 +1,4 @@
 #include "recv_heartbeat.h"
-#include <rte_ether.h>
-#include <rte_ip.h>
-#include <rte_udp.h>
 
 
 static void
@@ -50,14 +47,17 @@ int lcore_recv_heartbeat_pkt(struct recv_arg recv_arg)
             struct rte_mbuf *pkt = bufs[i];
 
             // unwrap the ethernet layer header
-            struct ether_hdr *eth_hdr = rte_pktmbuf_mtod(pkt, struct ether_hdr *);
+			// I totally forget that there is an rte_ in the name of this structure, which waste me some time finding this bug!!!
+			// It keeps telling me that this structure cannot be found in the header file
+			// which caused me to rethink whether I have been including header files incorrectly for my entire life...
+            struct rte_ether_hdr *eth_hdr =(struct rte_ether_hdr *)rte_pktmbuf_mtod(pkt, struct rte_ether_hdr *);
             
             // if this is indeed an IP packet
             if (eth_hdr->ether_type == rte_cpu_to_be_16(RTE_ETHER_TYPE_IPV4) ){
-				struct ipv4_hdr * ip_hdr = (struct ipv4_hdr *)(eth_hdr + 1);
+				struct rte_ipv4_hdr * ip_hdr = rte_pktmbuf_mtod_offset(pkt, struct rte_ipv4_hdr *, sizeof(struct rte_ether_hdr));
 				// if this is a UDP packet and is intended for me and is from someone that I am expecting...
 				if ((ip_hdr->next_proto_id == IPPROTO_UDP) && (ip_hdr->src_addr == string_to_ip(NODE_2_IP)) && (ip_hdr->dst_addr == string_to_ip(NODE_1_IP)) ){
-					struct udp_hdr *udp_hdr = (struct udp_hdr *)(ip_hdr + 1);
+					struct rte_udp_hdr *udp_hdr = (struct rte_udp_hdr *)(ip_hdr + 1);
 					// if the UDP port matches what I am expecting...
 					if (udp_hdr->dst_port == rte_cpu_to_be_16(HB_SRC_PORT)) {
 						// print the packet detail that I have unwrapped so far...
@@ -104,3 +104,10 @@ int lcore_recv_heartbeat_pkt(struct recv_arg recv_arg)
 	}
 	return 0;
 }
+
+
+// int lcore_recv_heartbeat_pkt(struct lcore_params *p, struct fd_info * fdinfo, struct rte_timer * tim)
+// int lcore_recv_heartbeat_pkt(struct recv_arg recv_arg)
+// {
+// 	return 0;
+// }
