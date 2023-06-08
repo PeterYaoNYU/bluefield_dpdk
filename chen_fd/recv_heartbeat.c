@@ -75,12 +75,12 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 						struct payload * obj= (struct payload *)(udp_hdr + 1);
 						uint64_t receipt_time = rte_rdtsc();
 
-						fdinfo.arr_timestamp[fdinfo.next_avail] = (struct hb_timestamp) { .heartbeat_id = obj->heartbeat_id, .hb_timestamp = receipt_time};
+						fdinfo.arr_timestamp[fdinfo.next_avail] = (struct hb_timestamp) { .heartbeat_id = pkt_cnt, .hb_timestamp = receipt_time};
 						
 						// increment the next_avail variable 
-						fdinfo.next_avail = (fdinfo.next_avail + 1) % HEARTBEAT_N;
+						fdinfo.next_avail = (fdinfo.next_avail + 1) % ARR_SIZE;
 
-						if (unlikely(obj->heartbeat_id == HEARTBEAT_N)) {
+						if (unlikely(pkt_cnt == HEARTBEAT_N)) {
 							uint16_t i;
 							uint64_t moving_sum;
 							struct hb_timestamp hb;
@@ -89,18 +89,19 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 								moving_sum += (hb.hb_timestamp - hb.heartbeat_id * fdinfo.delta_i);
 							}
 							fdinfo.ea = moving_sum / HEARTBEAT_N + (HEARTBEAT_N+1) * (fdinfo.delta_i);
-						} else if (obj->heartbeat_id > HEARTBEAT_N){
+							printf("putting the first estimate %lu\n", fdinfo.ea);
+						} else if (pkt_cnt > HEARTBEAT_N){
 							// calculate the new estimeated arrival time 
 							fdinfo.ea = fdinfo.ea + ((receipt_time - (fdinfo.arr_timestamp[fdinfo.next_evicted]).hb_timestamp) / HEARTBEAT_N);
-							printf("FD: %lu th HB arriving, at time %lu, esti: %lu\n", obj->heartbeat_id, receipt_time, fdinfo.ea);
+							printf("FD: %lu th HB arriving, at time %lu, esti: %lu\n", pkt_cnt, receipt_time, fdinfo.ea);
 
 							// update the next_evicted variable
-							fdinfo.next_evicted = (fdinfo.next_evicted + 1) % HEARTBEAT_N;
+							fdinfo.next_evicted = (fdinfo.next_evicted + 1) % ARR_SIZE;
 							
 							// rewire the timer to the next estimation of the arrival time
 							rte_timer_reset(tim, fdinfo.ea - receipt_time, SINGLE, lcore_id, timer1_cb, (void *)(fdinfo.ea - receipt_time));
 						} else {
-							printf("too early to put an estimate");
+							printf("too early to put an estimate, but the arrival time is %lu\n", receipt_time);				
 						}
 
 					}

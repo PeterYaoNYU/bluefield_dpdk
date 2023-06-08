@@ -74,6 +74,8 @@ struct hb_timestamp {
     uint64_t hb_timestamp;
 };
 
+#define ARR_SIZE HEARTBEAT_N+2
+
 struct fd_info {
     // heartbeat interval in melli-second
     int delta_i;
@@ -84,11 +86,13 @@ struct fd_info {
 
     // keep track of the last n timestamps
     // +2 to make the update procedure smoother
-    struct hb_timestamp arr_timestamp[HEARTBEAT_N + 2];
+    struct hb_timestamp arr_timestamp[ARR_SIZE];
 
     uint16_t next_evicted;
     uint16_t next_avail;
 };
+
+
 
 // the structure that is passed to the recv loop function as a parameter
 // it should be a collection of fd_info, lcore_params, and a timer, all three are pointers
