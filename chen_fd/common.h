@@ -42,8 +42,7 @@
 #define NUM_TX_QUEUE 1 
 
 #define BURST_SIZE 32
-#define BURST_SIZE_TX 32
-
+#define BURST_SIZE_TX 1
 
 // how many past packets you want to keep track of
 #define HEARTBEAT_N 10
