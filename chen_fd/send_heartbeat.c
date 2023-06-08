@@ -44,53 +44,50 @@ int lcore_send_heartbeat_pkt(struct lcore_params *p, uint64_t hb_id)
 
     struct rte_mbuf *pkts[BURST_SIZE];
 
-    for (;;)
-    {
         rte_pktmbuf_alloc_bulk(p->mem_pool, pkts, BURST_SIZE);
 
-        uint16_t i ;
-        for (i = 0; i < BURST_SIZE; i++)
-        {          
-            eth_hdr = rte_pktmbuf_mtod(pkts[i], struct rte_ether_hdr *);
-            eth_hdr->dst_addr = d_addr;
-            eth_hdr->src_addr = s_addr;
-            eth_hdr->ether_type = ether_type;
+    uint16_t i ;
+    for (i = 0; i < BURST_SIZE; i++)
+    {          
+        eth_hdr = rte_pktmbuf_mtod(pkts[i], struct rte_ether_hdr *);
+        eth_hdr->dst_addr = d_addr;
+        eth_hdr->src_addr = s_addr;
+        eth_hdr->ether_type = ether_type;
 
-            ipv4_hdr = rte_pktmbuf_mtod_offset(pkts[i], struct rte_ipv4_hdr *, sizeof(struct rte_ether_hdr));
-            ipv4_hdr->version_ihl = 0x45;
-            ipv4_hdr->next_proto_id = 0x11;
-            ipv4_hdr->src_addr = s_ip_addr;
-            ipv4_hdr->dst_addr = d_ip_addr;
-            ipv4_hdr->time_to_live = 0x40;
+        ipv4_hdr = rte_pktmbuf_mtod_offset(pkts[i], struct rte_ipv4_hdr *, sizeof(struct rte_ether_hdr));
+        ipv4_hdr->version_ihl = 0x45;
+        ipv4_hdr->next_proto_id = 0x11;
+        ipv4_hdr->src_addr = s_ip_addr;
+        ipv4_hdr->dst_addr = d_ip_addr;
+        ipv4_hdr->time_to_live = 0x40;
 
-            udp_hdr = rte_pktmbuf_mtod_offset(pkts[i], struct rte_udp_hdr *, sizeof(struct rte_ether_hdr) + sizeof(struct rte_ipv4_hdr));
-            udp_hdr->dgram_len = rte_cpu_to_be_16(sizeof(struct payload) + sizeof(struct rte_udp_hdr));
-            // using port 6666 for the hearbeat between the two experiment ports 
-            udp_hdr->src_port = rte_cpu_to_be_16(6666);
-            udp_hdr->dst_port = rte_cpu_to_be_16(6666);
-            ipv4_hdr->total_length = rte_cpu_to_be_16(sizeof(struct payload) + sizeof(struct rte_udp_hdr) + sizeof(struct rte_ipv4_hdr));
+        udp_hdr = rte_pktmbuf_mtod_offset(pkts[i], struct rte_udp_hdr *, sizeof(struct rte_ether_hdr) + sizeof(struct rte_ipv4_hdr));
+        udp_hdr->dgram_len = rte_cpu_to_be_16(sizeof(struct payload) + sizeof(struct rte_udp_hdr));
+        // using port 6666 for the hearbeat between the two experiment ports 
+        udp_hdr->src_port = rte_cpu_to_be_16(6666);
+        udp_hdr->dst_port = rte_cpu_to_be_16(6666);
+        ipv4_hdr->total_length = rte_cpu_to_be_16(sizeof(struct payload) + sizeof(struct rte_udp_hdr) + sizeof(struct rte_ipv4_hdr));
 
-            //init udp payload
-            struct payload obj = {
-                .heartbeat_id = hb_id,
-            };
-            struct payload *msg;
+        //init udp payload
+        struct payload obj = {
+            .heartbeat_id = hb_id,
+        };
+        struct payload *msg;
 
-            msg = (struct payload *)(rte_pktmbuf_mtod(pkts[i], char *) + sizeof(struct rte_ether_hdr) + sizeof(struct rte_ipv4_hdr) + sizeof(struct rte_udp_hdr));
-            *msg = obj;
+        msg = (struct payload *)(rte_pktmbuf_mtod(pkts[i], char *) + sizeof(struct rte_ether_hdr) + sizeof(struct rte_ipv4_hdr) + sizeof(struct rte_udp_hdr));
+        *msg = obj;
 
-            int pkt_size = sizeof(struct payload) + sizeof(struct rte_ether_hdr) + sizeof(struct rte_ipv4_hdr) + sizeof(struct rte_udp_hdr);
+        int pkt_size = sizeof(struct payload) + sizeof(struct rte_ether_hdr) + sizeof(struct rte_ipv4_hdr) + sizeof(struct rte_udp_hdr);
 
-            pkts[i]->l2_len = sizeof(struct rte_ether_hdr);
-            pkts[i]->l3_len = sizeof(struct rte_ipv4_hdr);
-            pkts[i]->l4_len = sizeof(struct rte_udp_hdr);
-            pkts[i]->ol_flags |= RTE_MBUF_F_TX_IPV4 | RTE_MBUF_F_TX_IP_CKSUM | RTE_MBUF_F_TX_UDP_CKSUM;
-            ipv4_hdr->hdr_checksum = 0;
-            udp_hdr->dgram_cksum = rte_ipv4_phdr_cksum(ipv4_hdr, pkts[i]->ol_flags);
-            pkts[i]->data_len = pkt_size;
-            pkts[i]->pkt_len = pkt_size;
-            
-        }
+        pkts[i]->l2_len = sizeof(struct rte_ether_hdr);
+        pkts[i]->l3_len = sizeof(struct rte_ipv4_hdr);
+        pkts[i]->l4_len = sizeof(struct rte_udp_hdr);
+        pkts[i]->ol_flags |= RTE_MBUF_F_TX_IPV4 | RTE_MBUF_F_TX_IP_CKSUM | RTE_MBUF_F_TX_UDP_CKSUM;
+        ipv4_hdr->hdr_checksum = 0;
+        udp_hdr->dgram_cksum = rte_ipv4_phdr_cksum(ipv4_hdr, pkts[i]->ol_flags);
+        pkts[i]->data_len = pkt_size;
+        pkts[i]->pkt_len = pkt_size;    
+    }
 
         uint16_t sent = rte_eth_tx_burst(0, p->tx_queue_id, pkts, BURST_SIZE);   
         if (unlikely(sent < BURST_SIZE))
@@ -101,9 +98,7 @@ int lcore_send_heartbeat_pkt(struct lcore_params *p, uint64_t hb_id)
             }
         }
 
-        printf("Sender: %u packets were sent in this burst\n", sent);
-         
-    }
+        printf("Sender: %u packets were sent in this burst, id: %lu\n", sent, hb_id);
 
     return 0;
 }

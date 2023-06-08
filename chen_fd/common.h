@@ -41,7 +41,7 @@
 #define NUM_RX_QUEUE 1
 #define NUM_TX_QUEUE 1 
 
-#define BURST_SIZE 64
+#define BURST_SIZE 32
 #define BURST_SIZE_TX 32
 
 
