@@ -11,7 +11,6 @@ timer1_cb(struct rte_timer *tim, void *arg)
 	uint64_t rewired_amount = (uint64_t) arg;
 	printf("!!%lu!! ", rewired_amount);
 
-
 	rte_timer_reset(tim, rewired_amount, SINGLE, lcore_id, timer1_cb, (void *)rewired_amount);
 }
 
@@ -24,7 +23,7 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 	struct rte_timer * tim = recv_arg->t;
 
 	struct fd_info fdinfo = {
-		.delta_i = DELTA_I,
+		.delta_i = DELTA_I * 10000,
 		.ea = 0,
 		.next_evicted = 0,
 		.next_avail = 0
@@ -100,6 +99,8 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 							
 							// rewire the timer to the next estimation of the arrival time
 							rte_timer_reset(tim, fdinfo.ea - receipt_time, SINGLE, lcore_id, timer1_cb, (void *)(fdinfo.ea - receipt_time));
+						} else {
+							printf("too early to put an estimate");
 						}
 
 					}

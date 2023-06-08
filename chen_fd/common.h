@@ -76,7 +76,7 @@ struct hb_timestamp {
 
 struct fd_info {
     // heartbeat interval in melli-second
-    uint16_t delta_i;
+    int delta_i;
     // estimated arrival time for the next heartbeat
     uint64_t ea;
     // // keep track of the last n packets

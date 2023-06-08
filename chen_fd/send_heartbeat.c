@@ -18,7 +18,7 @@ lcore_mainloop_send_heartbeat(struct lcore_params *p)
 	while (1) {
         lcore_send_heartbeat_pkt(p, hb_id);
         hb_id++;
-        rte_delay_us_sleep(DELTA_I * 1000);
+        rte_delay_us_sleep(DELTA_I * 10000);
 	}
 	/* >8 End of main loop. */
 }
@@ -42,12 +42,12 @@ int lcore_send_heartbeat_pkt(struct lcore_params *p, uint64_t hb_id)
     rte_be32_t d_ip_addr = string_to_ip("10.10.1.1");
     uint16_t ether_type = rte_cpu_to_be_16(0x0800);
 
-    struct rte_mbuf *pkts[BURST_SIZE];
+    struct rte_mbuf *pkts[BURST_SIZE_TX];
 
-        rte_pktmbuf_alloc_bulk(p->mem_pool, pkts, BURST_SIZE);
+    rte_pktmbuf_alloc_bulk(p->mem_pool, pkts, BURST_SIZE_TX);
 
     uint16_t i ;
-    for (i = 0; i < BURST_SIZE; i++)
+    for (i = 0; i < BURST_SIZE_TX; i++)
     {          
         eth_hdr = rte_pktmbuf_mtod(pkts[i], struct rte_ether_hdr *);
         eth_hdr->dst_addr = d_addr;
@@ -89,10 +89,10 @@ int lcore_send_heartbeat_pkt(struct lcore_params *p, uint64_t hb_id)
         pkts[i]->pkt_len = pkt_size;    
     }
 
-        uint16_t sent = rte_eth_tx_burst(0, p->tx_queue_id, pkts, BURST_SIZE);   
-        if (unlikely(sent < BURST_SIZE))
+        uint16_t sent = rte_eth_tx_burst(0, p->tx_queue_id, pkts, BURST_SIZE_TX);   
+        if (unlikely(sent < BURST_SIZE_TX))
         {
-            while (sent < BURST_SIZE)
+            while (sent < BURST_SIZE_TX)
             {
                 rte_pktmbuf_free(pkts[sent++]);
             }
