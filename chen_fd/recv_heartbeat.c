@@ -15,12 +15,12 @@ timer1_cb(struct rte_timer *tim, void *arg)
 }
 
 // int lcore_recv_heartbeat_pkt(struct lcore_params *p, struct fd_info * fdinfo, struct rte_timer * tim)
-int lcore_recv_heartbeat_pkt(struct recv_arg recv_arg)
+int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 {
 	// first, unpack the arguments from recv_arg
-	struct lcore_params *p = recv_arg.p;
-	struct fd_info * fdinfo = recv_arg.fdinfo;
-	struct rte_timer * tim = recv_arg.t;
+	struct lcore_params *p = recv_arg->p;
+	struct fd_info * fdinfo = recv_arg->fdinfo;
+	struct rte_timer * tim = recv_arg->t;
 
 	const int socket_id = rte_socket_id();
 
@@ -28,11 +28,13 @@ int lcore_recv_heartbeat_pkt(struct recv_arg recv_arg)
 	printf("Core %u doing RX dequeue.\n", lcore_id);
 
 	uint64_t pkt_cnt = 0;
+	printf("everything ok so far");
+
 
 	while (1){
 		struct rte_mbuf *bufs[BURST_SIZE];
 		uint16_t nb_rx = rte_eth_rx_burst(0, p->rx_queue_id, bufs, BURST_SIZE);
-		// printf("received %u packets in this burst\n", nb_rx);
+		printf("received %u packets in this burst\n", nb_rx);
 
 		// update the states of all timers in the skip list, check for expiration
 		rte_timer_manage();

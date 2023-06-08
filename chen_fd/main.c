@@ -55,6 +55,16 @@ int main(int argc, char *argv[])
     /* Init timer structures. 8< */
 	rte_timer_init(&timer0);
 
+    // Start tx core
+    for (int i = 0; i < NUM_TX_QUEUE; ++i)
+    {
+        lp_tx[i] = rte_malloc(NULL, sizeof(*lp_tx[i]), 0);
+        if (!lp_tx[i])
+            rte_panic("malloc failure\n");
+        *lp_tx[i] = (struct lcore_params){i, i, mbuf_pool};
+        rte_eal_remote_launch((lcore_function_t *)lcore_mainloop_send_heartbeat, lp_tx[i], lcore_num++);
+    }
+
 
     // Start rx core
     for (int i = 0; i < NUM_RX_QUEUE; ++i)
@@ -70,18 +80,7 @@ int main(int argc, char *argv[])
             .fdinfo = &fdinfo,
             .t = &timer0
         };
-        rte_eal_remote_launch((lcore_function_t *)lcore_recv_heartbeat_pkt, lp_rx[i], lcore_num++);
-    }
-
-    
-    // Start tx core
-    for (int i = 0; i < NUM_TX_QUEUE; ++i)
-    {
-        lp_tx[i] = rte_malloc(NULL, sizeof(*lp_tx[i]), 0);
-        if (!lp_tx[i])
-            rte_panic("malloc failure\n");
-        *lp_tx[i] = (struct lcore_params){i, i, mbuf_pool};
-        rte_eal_remote_launch((lcore_function_t *)lcore_mainloop_send_heartbeat, lp_tx[i], lcore_num++);
+        rte_eal_remote_launch((lcore_function_t *)lcore_recv_heartbeat_pkt, (void *)&recv_arg, lcore_num++);
     }
 
 
