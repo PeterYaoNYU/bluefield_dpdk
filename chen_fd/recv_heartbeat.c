@@ -36,6 +36,7 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 	unsigned lcore_id = rte_lcore_id();
 	printf("Core %u doing RX dequeue.\n", lcore_id);
 
+	// this is the pkt_cnt th heartbeat that I have received 
 	uint64_t pkt_cnt = 0;
 
 	while (1){
@@ -74,13 +75,14 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 						// update the Chen's estimation based on the packet received...
 						struct payload * obj= (struct payload *)(udp_hdr + 1);
 						uint64_t receipt_time = rte_rdtsc();
-
-						fdinfo.arr_timestamp[fdinfo.next_avail] = (struct hb_timestamp) { .heartbeat_id = obj->heartbeat_id, .hb_timestamp = receipt_time};
+						
+						// update the pkt_cnt, which keep tracks of how many packets we have received  
+						fdinfo.arr_timestamp[fdinfo.next_avail] = (struct hb_timestamp) { .heartbeat_id = pkt_cnt++, .hb_timestamp = receipt_time};
 						
 						// increment the next_avail variable 
 						fdinfo.next_avail = (fdinfo.next_avail + 1) % HEARTBEAT_N;
 
-						if (unlikely(obj->heartbeat_id == HEARTBEAT_N)) {
+						if (unlikely(pkt_cnt == HEARTBEAT_N)) {
 							uint16_t i;
 							uint64_t moving_sum;
 							struct hb_timestamp hb;
@@ -89,7 +91,7 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 								moving_sum += (hb.hb_timestamp - hb.heartbeat_id * fdinfo.delta_i);
 							}
 							fdinfo.ea = moving_sum / HEARTBEAT_N + (HEARTBEAT_N+1) * (fdinfo.delta_i);
-						} else if (obj->heartbeat_id > HEARTBEAT_N){
+						} else if (pkt_cnt > HEARTBEAT_N){
 							// calculate the new estimeated arrival time 
 							fdinfo.ea = fdinfo.ea + ((receipt_time - (fdinfo.arr_timestamp[fdinfo.next_evicted]).hb_timestamp) / HEARTBEAT_N);
 							printf("FD: %lu th HB arriving, at time %lu, esti: %lu\n", obj->heartbeat_id, receipt_time, fdinfo.ea);
