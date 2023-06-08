@@ -27,7 +27,7 @@ lcore_mainloop_send_heartbeat(struct lcore_params *p)
 int lcore_send_heartbeat_pkt(struct lcore_params *p, uint64_t hb_id)
 {
     const int socket_id = rte_socket_id();
-    printf("Core %u sending heartbeat packet.\n", rte_lcore_id());
+    printf("Core %u sending heartbeat packet id: %lu.\n", rte_lcore_id(), hb_id);
 
     struct rte_ether_hdr *eth_hdr;
     struct rte_ipv4_hdr *ipv4_hdr;
