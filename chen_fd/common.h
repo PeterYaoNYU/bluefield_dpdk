@@ -88,8 +88,8 @@ struct fd_info {
     // +2 to make the update procedure smoother
     struct hb_timestamp arr_timestamp[ARR_SIZE];
 
-    uint16_t next_evicted;
-    uint16_t next_avail;
+    int next_evicted;
+    int next_avail;
 };
 
 
