@@ -11,14 +11,16 @@ timer1_cb(struct rte_timer *tim, void *arg)
 	uint64_t rewired_amount = (uint64_t) arg;
 	printf("!!%lu!! ", rewired_amount);
 
-	rte_timer_reset(tim, rewired_amount, SINGLE, lcore_id, timer1_cb, (void *)rewired_amount);
+	// rte_timer_reset(tim, rewired_amount, SINGLE, lcore_id, timer1_cb, (void *)rewired_amount);
 }
 
 // int lcore_recv_heartbeat_pkt(struct lcore_params *p, struct fd_info * fdinfo, struct rte_timer * tim)
 int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 {
+	// it is 
+
 	// first, unpack the arguments from recv_arg
-	struct lcore_params *p = recv_arg->p;
+	struct lcore_params *p = recv_arg->p;·
 	// struct fd_info * fdinfo = recv_arg->fdinfo;
 	struct rte_timer * tim = recv_arg->t;
 
@@ -100,8 +102,8 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 							struct hb_timestamp hb;
 							for (i = fdinfo.next_evicted; i < fdinfo.next_avail; i++){
 								hb = fdinfo.arr_timestamp[i];
-								moving_sum += (hb.hb_timestamp - hb.heartbeat_id * fdinfo.delta_i);
-								printf("%d: %lu, moving sum: %lu\n", i, (hb.hb_timestamp - hb.heartbeat_id * fdinfo.delta_i), moving_sum);
+								moving_sum += (hb.hb_timestamp - hb.heartbeat_id * 1000000);
+								printf("%d: %lu, moving sum: %lu\n", hb.heartbeat_id, (hb.hb_timestamp - hb.heartbeat_id * fdinfo.delta_i), moving_sum);
 							}
 							fdinfo.ea = moving_sum / HEARTBEAT_N + (HEARTBEAT_N+1) * (fdinfo.delta_i);
 							printf("putting the first estimate %lu\n", fdinfo.ea);
