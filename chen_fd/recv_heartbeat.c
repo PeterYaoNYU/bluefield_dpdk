@@ -75,9 +75,12 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 						// TO-DO
 
 						// update the Chen's estimation based on the packet received...
-						struct payload * obj= (struct payload *)(udp_hdr 
-						
+						struct payload * obj= (struct payload *)(udp_hdr + 1);
+						uint64_t receipt_time = rte_rdtsc();
+
 						printf("storing the receipt time into index: %d\n", fdinfo.next_avail);
+						
+
 						fdinfo.arr_timestamp[fdinfo.next_avail] = (struct hb_timestamp) { .heartbeat_id = pkt_cnt, .hb_timestamp = receipt_time};
 						
 						// increment the next_avail variable 
