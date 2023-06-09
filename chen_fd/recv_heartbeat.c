@@ -96,7 +96,7 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 								printf("%lu: %lu | ", fdinfo.arr_timestamp[i].heartbeat_id, fdinfo.arr_timestamp[i].hb_timestamp);
 							}
 							int i;
-							uint64_t moving_sum;
+							uint64_t moving_sum = 0;
 							struct hb_timestamp hb;
 							for (i = fdinfo.next_evicted; i < fdinfo.next_avail; i++){
 								hb = fdinfo.arr_timestamp[i];
