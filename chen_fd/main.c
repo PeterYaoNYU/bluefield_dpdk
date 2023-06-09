@@ -60,7 +60,7 @@ int main(int argc, char *argv[])
     {
         lp_tx[i] = rte_malloc(NULL, sizeof(*lp_tx[i]), 0);
         if (!lp_tx[i])
-            rte_panic("malloc failure\n");
+            rte_panic("malloc failure for lcore paramter\n");
         *lp_tx[i] = (struct lcore_params){i, i, mbuf_pool};
         rte_eal_remote_launch((lcore_function_t *)lcore_mainloop_send_heartbeat, lp_tx[i], lcore_num++);
     }

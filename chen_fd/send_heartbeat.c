@@ -6,7 +6,7 @@
 __rte_noreturn int
 lcore_mainloop_send_heartbeat(struct lcore_params *p)
 {
-	uint64_t prev_tsc = 0, cur_tsc, diff_tsc;
+	// uint64_t prev_tsc = 0, cur_tsc, diff_tsc;
 	unsigned lcore_id;
 
 	lcore_id = rte_lcore_id();
@@ -18,6 +18,7 @@ lcore_mainloop_send_heartbeat(struct lcore_params *p)
 	while (1) {
         lcore_send_heartbeat_pkt(p, hb_id);
         hb_id++;
+        // sleep in a non-busy manner, can still schedule other tasks on that core 
         rte_delay_us_sleep(DELTA_I * 10000);
 	}
 	/* >8 End of main loop. */

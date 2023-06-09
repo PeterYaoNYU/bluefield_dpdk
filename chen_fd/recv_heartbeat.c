@@ -64,7 +64,8 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
             if (eth_hdr->ether_type == rte_cpu_to_be_16(RTE_ETHER_TYPE_IPV4) ){
 				struct rte_ipv4_hdr * ip_hdr = rte_pktmbuf_mtod_offset(pkt, struct rte_ipv4_hdr *, sizeof(struct rte_ether_hdr));
 				// if this is a UDP packet and is intended for me and is from someone that I am expecting...
-				if ((ip_hdr->next_proto_id == IPPROTO_UDP) && (ip_hdr->src_addr == string_to_ip(NODE_2_IP)) && (ip_hdr->dst_addr == string_to_ip(NODE_1_IP)) ){
+				// if ((ip_hdr->next_proto_id == IPPROTO_UDP) && (ip_hdr->src_addr == string_to_ip(NODE_2_IP)) && (ip_hdr->dst_addr == string_to_ip(NODE_1_IP)) ){
+				if (ip_hdr->next_proto_id == IPPROTO_UDP){
 					struct rte_udp_hdr *udp_hdr = (struct rte_udp_hdr *)(ip_hdr + 1);
 					// if the UDP port matches what I am expecting...
 					if (udp_hdr->dst_port == rte_cpu_to_be_16(HB_SRC_PORT)) {
@@ -80,7 +81,8 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 						// increment the next_avail variable 
 						fdinfo.next_avail = (fdinfo.next_avail + 1) % ARR_SIZE;
 
-						if (unlikely(pkt_cnt == HEARTBEAT_N)) {
+						// if (unlikely(pkt_cnt == HEARTBEAT_N)) {
+						if (pkt_cnt == HEARTBEAT_N) {
 							uint16_t i;
 							uint64_t moving_sum;
 							struct hb_timestamp hb;
@@ -90,6 +92,7 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 							}
 							fdinfo.ea = moving_sum / HEARTBEAT_N + (HEARTBEAT_N+1) * (fdinfo.delta_i);
 							printf("putting the first estimate %lu\n", fdinfo.ea);
+							rte_timer_reset(tim, fdinfo.ea - receipt_time, SINGLE, lcore_id, timer1_cb, (void *)(fdinfo.ea - receipt_time));
 						} else if (pkt_cnt > HEARTBEAT_N){
 							// calculate the new estimeated arrival time 
 							fdinfo.ea = fdinfo.ea + ((receipt_time - (fdinfo.arr_timestamp[fdinfo.next_evicted]).hb_timestamp) / HEARTBEAT_N);
@@ -101,7 +104,10 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 							// rewire the timer to the next estimation of the arrival time
 							rte_timer_reset(tim, fdinfo.ea - receipt_time, SINGLE, lcore_id, timer1_cb, (void *)(fdinfo.ea - receipt_time));
 						} else {
-							printf("too early to put an estimate, but the arrival time is %lu\n", receipt_time);				
+							printf("too early to put an estimate, but the arrival time is %lu\n", receipt_time);
+							for (int i = 0; i < ARR_SIZE; i){
+								printf("%lu: %lu | ", fdinfo.arr_timestamp[i].heartbeat_id, fdinfo.arr_timestamp[i].hb_timestamp);
+							}
 						}
 
 					}
