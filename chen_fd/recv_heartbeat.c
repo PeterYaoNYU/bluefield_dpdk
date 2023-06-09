@@ -19,6 +19,7 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 {
 	// need to make a translation between the number of cycles per second and the number of seconds of our EA
 	uint64_t hz = rte_get_timer_hz();
+	printf("the hz is %lu\n", hz);
 	// this is the number of ticks per second  
 
 	// first, unpack the arguments from recv_arg
