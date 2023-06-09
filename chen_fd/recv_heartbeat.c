@@ -92,12 +92,16 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 
 						// if (unlikely(pkt_cnt == HEARTBEAT_N)) {
 						if (pkt_cnt == HEARTBEAT_N) {
-							uint16_t i;
+							for (int i = 0; i < ARR_SIZE; i++){
+								printf("%lu: %lu | ", fdinfo.arr_timestamp[i].heartbeat_id, fdinfo.arr_timestamp[i].hb_timestamp);
+							}
+							int i;
 							uint64_t moving_sum;
 							struct hb_timestamp hb;
 							for (i = fdinfo.next_evicted; i < fdinfo.next_avail; i++){
 								hb = fdinfo.arr_timestamp[i];
 								moving_sum += (hb.hb_timestamp - hb.heartbeat_id * fdinfo.delta_i);
+								printf("%d: %lu, moving sum: %lu\n", i, (hb.hb_timestamp - hb.heartbeat_id * fdinfo.delta_i), moving_sum);
 							}
 							fdinfo.ea = moving_sum / HEARTBEAT_N + (HEARTBEAT_N+1) * (fdinfo.delta_i);
 							printf("putting the first estimate %lu\n", fdinfo.ea);
