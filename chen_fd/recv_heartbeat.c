@@ -69,6 +69,8 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 					struct rte_udp_hdr *udp_hdr = (struct rte_udp_hdr *)(ip_hdr + 1);
 					// if the UDP port matches what I am expecting...
 					if (udp_hdr->dst_port == rte_cpu_to_be_16(HB_SRC_PORT)) {
+						// update pkt_cnt
+						pkt_cnt++;
 						// print the packet detail that I have unwrapped so far...
 						// TO-DO
 
