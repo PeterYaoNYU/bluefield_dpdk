@@ -105,7 +105,7 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 							rte_timer_reset(tim, fdinfo.ea - receipt_time, SINGLE, lcore_id, timer1_cb, (void *)(fdinfo.ea - receipt_time));
 						} else {
 							printf("too early to put an estimate, but the arrival time is %lu\n", receipt_time);
-							for (int i = 0; i < ARR_SIZE; i){
+							for (int i = 0; i < ARR_SIZE; i++){
 								printf("%lu: %lu | ", fdinfo.arr_timestamp[i].heartbeat_id, fdinfo.arr_timestamp[i].hb_timestamp);
 							}
 						}
