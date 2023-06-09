@@ -105,7 +105,7 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 							struct hb_timestamp hb;
 							for (i = fdinfo.next_evicted; i < fdinfo.next_avail; i++){
 								hb = fdinfo.arr_timestamp[i];
-								moving_sum += (hb.hb_timestamp - hb.heartbeat_id * 1000000);
+								moving_sum += (hb.hb_timestamp - hb.heartbeat_id * hz);
 								// printf("%d: %lu, moving sum: %lu\n", hb.heartbeat_id, (hb.hb_timestamp - hb.heartbeat_id * fdinfo.delta_i * hz / ), moving_sum);
 								printf("%lu: %lu, moving sum: %lu\n", hb.heartbeat_id, (hb.hb_timestamp - hb.heartbeat_id * hz), moving_sum);
 							}
