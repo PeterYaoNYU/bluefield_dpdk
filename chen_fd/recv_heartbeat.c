@@ -81,7 +81,11 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 						printf("storing the receipt time into index: %d\n", fdinfo.next_avail);
 						
 
-						fdinfo.arr_timestamp[fdinfo.next_avail] = (struct hb_timestamp) { .heartbeat_id = pkt_cnt, .hb_timestamp = receipt_time};
+						// fdinfo.arr_timestamp[fdinfo.next_avail] = (struct hb_timestamp) { .heartbeat_id = pkt_cnt, .hb_timestamp = receipt_time};
+						fdinfo.arr_timestamp[fdinfo.next_avail].heartbeat_id = pkt_cnt;
+						fdinfo.arr_timestamp[fdinfo.next_avail].hb_timestamp = receipt_time;
+						printf("fdinfo + 1: %d, take mod: %d\n", fdinfo.next_avail+1, (fdinfo.next_avail + 1) % ARR_SIZE);
+
 						
 						// increment the next_avail variable 
 						fdinfo.next_avail = (fdinfo.next_avail + 1) % ARR_SIZE;
