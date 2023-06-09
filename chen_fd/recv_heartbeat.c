@@ -17,10 +17,12 @@ timer1_cb(struct rte_timer *tim, void *arg)
 // int lcore_recv_heartbeat_pkt(struct lcore_params *p, struct fd_info * fdinfo, struct rte_timer * tim)
 int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 {
-	// it is 
+	// need to make a translation between the number of cycles per second and the number of seconds of our EA
+	uint64_t hz = rte_get_timer_hz();
+	// this is the number of ticks per second  
 
 	// first, unpack the arguments from recv_arg
-	struct lcore_params *p = recv_arg->p;·
+	struct lcore_params *p = recv_arg->p;
 	// struct fd_info * fdinfo = recv_arg->fdinfo;
 	struct rte_timer * tim = recv_arg->t;
 
@@ -103,7 +105,8 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 							for (i = fdinfo.next_evicted; i < fdinfo.next_avail; i++){
 								hb = fdinfo.arr_timestamp[i];
 								moving_sum += (hb.hb_timestamp - hb.heartbeat_id * 1000000);
-								printf("%d: %lu, moving sum: %lu\n", hb.heartbeat_id, (hb.hb_timestamp - hb.heartbeat_id * fdinfo.delta_i), moving_sum);
+								// printf("%d: %lu, moving sum: %lu\n", hb.heartbeat_id, (hb.hb_timestamp - hb.heartbeat_id * fdinfo.delta_i * hz / ), moving_sum);
+								printf("%lu: %lu, moving sum: %lu\n", hb.heartbeat_id, (hb.hb_timestamp - hb.heartbeat_id * hz), moving_sum);
 							}
 							fdinfo.ea = moving_sum / HEARTBEAT_N + (HEARTBEAT_N+1) * (fdinfo.delta_i);
 							printf("putting the first estimate %lu\n", fdinfo.ea);
