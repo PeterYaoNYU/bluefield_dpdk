@@ -11,7 +11,7 @@ timer1_cb(struct rte_timer *tim, void *arg)
 	uint64_t rewired_amount = (uint64_t) arg;
 	printf("!!%lu!! suspected\n", rewired_amount);
 
-	rte_timer_reset(tim, rewired_amount, SINGLE, lcore_id, timer1_cb, (void *)rewired_amount);
+	// rte_timer_reset(tim, rewired_amount, SINGLE, lcore_id, timer1_cb, (void *)rewired_amount);
 }
 
 // int lcore_recv_heartbeat_pkt(struct lcore_params *p, struct fd_info * fdinfo, struct rte_timer * tim)
