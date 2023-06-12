@@ -11,7 +11,7 @@ timer1_cb(struct rte_timer *tim, void *arg)
 	uint64_t rewired_amount = (uint64_t) arg;
 	printf("!!%lu!! ", rewired_amount);
 
-	// rte_timer_reset(tim, rewired_amount, SINGLE, lcore_id, timer1_cb, (void *)rewired_amount);
+	rte_timer_reset(tim, rewired_amount, SINGLE, lcore_id, timer1_cb, (void *)rewired_amount);
 }
 
 // int lcore_recv_heartbeat_pkt(struct lcore_params *p, struct fd_info * fdinfo, struct rte_timer * tim)
@@ -54,7 +54,7 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 			continue;
 		}
 
-		printf("received %u packets in this burst\n", nb_rx);
+		// printf("received %u packets in this burst\n", nb_rx);
 		uint16_t i;
 		for (i = 0; i < nb_rx; i++){
             struct rte_mbuf *pkt = bufs[i];
