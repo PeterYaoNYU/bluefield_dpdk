@@ -19,7 +19,8 @@ lcore_mainloop_send_heartbeat(struct lcore_params *p)
         lcore_send_heartbeat_pkt(p, hb_id);
         hb_id++;
         // sleep in a non-busy manner, can still schedule other tasks on that core 
-        rte_delay_us_sleep(DELTA_I * 10000);
+        // the sleep is set to 100 ms
+        rte_delay_us_sleep(DELTA_I * 1000);
 	}
 	/* >8 End of main loop. */
 }

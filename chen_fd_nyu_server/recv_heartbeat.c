@@ -9,7 +9,7 @@ timer1_cb(struct rte_timer *tim, void *arg)
 
 	// rewire the timer even for the suspected node
 	uint64_t rewired_amount = (uint64_t) arg;
-	printf("!!%lu!! ", rewired_amount);
+	printf("!!%lu!! suspected\n", rewired_amount);
 
 	rte_timer_reset(tim, rewired_amount, SINGLE, lcore_id, timer1_cb, (void *)rewired_amount);
 }
@@ -20,6 +20,9 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 	// need to make a translation between the number of cycles per second and the number of seconds of our EA
 	uint64_t hz = rte_get_timer_hz();
 	printf("the hz is %lu\n", hz);
+	// now real_interval is the real number of clock tick between 2 emissions
+	hz = DELTA_I / 1000 * hz;
+
 	// this is the number of ticks per second  
 
 	// first, unpack the arguments from recv_arg
@@ -28,7 +31,7 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 	struct rte_timer * tim = recv_arg->t;
 
 	struct fd_info fdinfo = {
-		.delta_i = DELTA_I * 10000,
+		.delta_i = DELTA_I * 1000,
 		.ea = 0,
 		.next_evicted = 0,
 		.next_avail = 0
@@ -89,7 +92,7 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 						// fdinfo.arr_timestamp[fdinfo.next_avail] = (struct hb_timestamp) { .heartbeat_id = pkt_cnt, .hb_timestamp = receipt_time};
 						fdinfo.arr_timestamp[fdinfo.next_avail].heartbeat_id = pkt_cnt;
 						fdinfo.arr_timestamp[fdinfo.next_avail].hb_timestamp = receipt_time;
-						printf("fdinfo + 1: %d, take mod: %d, ARR_SIZE: %d\n", fdinfo.next_avail+1, (fdinfo.next_avail + 1) % 12, ARR_SIZE);
+						// printf("fdinfo + 1: %d, take mod: %d, ARR_SIZE: %d\n", fdinfo.next_avail+1, (fdinfo.next_avail + 1) % 12, ARR_SIZE);
 
 						
 						// increment the next_avail variable 
