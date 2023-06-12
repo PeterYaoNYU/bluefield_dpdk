@@ -22,6 +22,7 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 	printf("the hz is %lu\n", hz);
 	// now real_interval is the real number of clock tick between 2 emissions
 	hz = DELTA_I / 1000 * hz;
+	printf("the real gap of clock ticks is %lu\n", hz);
 
 	// this is the number of ticks per second  
 
