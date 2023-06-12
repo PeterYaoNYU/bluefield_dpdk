@@ -39,8 +39,8 @@ int lcore_send_heartbeat_pkt(struct lcore_params *p, uint64_t hb_id)
     struct rte_ether_addr d_addr = {{0x00, 0x8c, 0xfa, 0x5b, 0x08, 0x7c}};
 
     //init IP header
-    rte_be32_t s_ip_addr = string_to_ip("192.168.0.16");
-    rte_be32_t d_ip_addr = string_to_ip("192.168.0.11");
+    rte_be32_t s_ip_addr = string_to_ip("192.168.0.11");
+    rte_be32_t d_ip_addr = string_to_ip("192.168.0.16");
     uint16_t ether_type = rte_cpu_to_be_16(0x0800);
 
     struct rte_mbuf *pkts[BURST_SIZE_TX];
