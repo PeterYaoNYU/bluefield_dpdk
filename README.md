@@ -10,4 +10,7 @@
 
 
 - [ ] Profiling the Chen's failure detector between two nodes
-- [ ] 
+
+- [ ] A failure detector using LSTM, using DPDK and libtorch
+      
+
