@@ -10,6 +10,7 @@
 
 
 - [ ] Profiling the Chen's failure detector between two nodes
+- [ ] A basic LSTM model using C++ LibTorch, which trains as it goes
 
 - [ ] A failure detector using LSTM, using DPDK and libtorch
       
