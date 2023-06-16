@@ -58,7 +58,7 @@ int main(int argc, char *argv[])
     // Start tx core
     for (int i = 0; i < NUM_TX_QUEUE; ++i)
     {
-        lp_tx[i] = rte_malloc(NULL, sizeof(*lp_tx[i]), 0);
+        lp_tx[i] = (lcore_params*)rte_malloc(NULL, sizeof(*lp_tx[i]), 0);
         if (!lp_tx[i])
             rte_panic("malloc failure for lcore paramter\n");
         *lp_tx[i] = (struct lcore_params){i, i, mbuf_pool};
@@ -69,7 +69,7 @@ int main(int argc, char *argv[])
     // Start rx core
     for (int i = 0; i < NUM_RX_QUEUE; ++i)
     {
-        lp_rx[i] = rte_malloc(NULL, sizeof(*lp_rx[i]), 0);
+        lp_rx[i] = (lcore_params*)rte_malloc(NULL, sizeof(*lp_rx[i]), 0);
         if (!lp_rx[i])
             rte_panic("malloc failure\n");
         *lp_rx[i] = (struct lcore_params){i, i, mbuf_pool};

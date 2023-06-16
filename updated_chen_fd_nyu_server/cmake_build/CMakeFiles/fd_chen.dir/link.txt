@@ -1,0 +1,1 @@
+/usr/bin/cc -Wall -Wextra -g -O3 -std=gnu11 -msse4.1 CMakeFiles/fd_chen.dir/main.c.o CMakeFiles/fd_chen.dir/port_init.c.o CMakeFiles/fd_chen.dir/recv_heartbeat.c.o CMakeFiles/fd_chen.dir/send_heartbeat.c.o CMakeFiles/fd_chen.dir/util.c.o -o fd_chen   -L/build/lib  -Wl,-rpath,/build/lib -Wl,--whole-archive -ldpdk -Wl,--no-whole-archive -lpthread -ldl -lrt -lm -lnuma 

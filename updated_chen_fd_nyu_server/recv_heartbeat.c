@@ -34,9 +34,9 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 	struct fd_info fdinfo = {
 		.delta_i = DELTA_I * 1000,
 		.ea = 0,
+		.evicted_time = 0,
 		.next_evicted = 0,
-		.next_avail = 0,
-		.evicted_time = 0
+		.next_avail = 0
 	};
 
 	memset(fdinfo.arr_timestamp, 0, sizeof(fdinfo.arr_timestamp));

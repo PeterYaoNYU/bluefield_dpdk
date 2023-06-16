@@ -1,3 +1,0 @@
-/home/peter/bluefield_dpdk/bare_lstm/build/CMakeFiles/lstm.dir
-/home/peter/bluefield_dpdk/bare_lstm/build/CMakeFiles/edit_cache.dir
-/home/peter/bluefield_dpdk/bare_lstm/build/CMakeFiles/rebuild_cache.dir

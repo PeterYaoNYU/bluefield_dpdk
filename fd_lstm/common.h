@@ -58,8 +58,8 @@
 #define DELTA_I 100
 
 struct lcore_params {
-    uint16_t rx_queue_id;
-    uint16_t tx_queue_id;
+    int rx_queue_id;
+    int tx_queue_id;
     struct rte_mempool *mem_pool;
 };
 

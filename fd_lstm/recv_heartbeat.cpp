@@ -33,9 +33,9 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 	struct fd_info fdinfo = {
 		.delta_i = DELTA_I * 1000,
 		.ea = 0,
+		.evicted_time = 0,
 		.next_evicted = 0,
-		.next_avail = 0,
-		.evicted_time = 0
+		.next_avail = 0
 	};
 
 	memset(fdinfo.arr_timestamp, 0, sizeof(fdinfo.arr_timestamp));
@@ -61,6 +61,8 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
     int sequence_length = 3;
 	float learning_rate = 0.001;
 	int num_epochs = 100;
+	int num_layers = 1;
+	bool batch_first = true;
 
 	// initialize the model that we will train on the fly
 	LSTMModel model(input_size, hidden_size, output_size, num_layers, batch_first);
@@ -106,6 +108,7 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 						// update the Chen's estimation based on the packet received...
 						struct payload * obj= (struct payload *)(udp_hdr + 1);
 						uint64_t receipt_time = rte_rdtsc();
+						long long_receipt_time = static_cast<long>(receipt_time);
 						fdinfo.evicted_time = fdinfo.arr_timestamp[fdinfo.next_evicted].hb_timestamp;
 
 						printf("storing the receipt time into index: %d\n", fdinfo.next_avail);
@@ -128,10 +131,11 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 							printf("\n");
 
 							torch::Tensor input = torch::arange(1, HEARTBEAT_N);
+							// cannot do that, arr_timestamp is a complicated structure, needs to change this! but it compiles fine
 							torch::Tensor target = torch::from_blob(fdinfo.arr_timestamp, {batch_size, HEARTBEAT_N, input_size});
 							model.trainModel(model, device, criterion, optimizer, input, target, num_epochs);
 
-							input = torch::Tensor(receipt_time);
+							input = torch::from_blob(&long_receipt_time, {1}, torch::kLong);
 
 							model.predict(model, input.reshape({1,1,1}));
 
