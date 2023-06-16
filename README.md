@@ -1,6 +1,6 @@
 # bluefield_dpdk
 ## A High Performance Network Library for Nvidia Bluefield-2 DPU
-
+## Failure Detection with DPDK
 - [x] Devinfo 
   - check if ports are binded to DPDK successfully, get binded port info
 - [x] Send_recv 
