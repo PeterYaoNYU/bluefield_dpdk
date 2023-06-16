@@ -1,15 +1,14 @@
 #include "recv_heartbeat.h"
 #include "lstm.h"
 
+
 static void
 timer1_cb(struct rte_timer *tim, void *arg)
 {
 	unsigned lcore_id = rte_lcore_id();
-
 	// rewire the timer even for the suspected node
 	uint64_t rewired_amount = (uint64_t) arg;
-	printf("!!%lu!! suspected\n", rewired_amount);
-
+	printf("!!!!!%lu!!!!!! suspected\n", rewired_amount);
 	// rte_timer_reset(tim, rewired_amount, SINGLE, lcore_id, timer1_cb, (void *)rewired_amount);
 }
 
@@ -34,8 +33,7 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 		.delta_i = DELTA_I * 1000,
 		.ea = 0,
 		.next_evicted = 0,
-		.next_avail = 0,
-		.evicted_time = 0
+		.next_avail = 0
 	};
 
 	memset(fdinfo.arr_timestamp, 0, sizeof(fdinfo.arr_timestamp));
@@ -66,6 +64,7 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 	LSTMModel model(input_size, hidden_size, output_size, num_layers, batch_first);
     torch::nn::MSELoss criterion;
     torch::optim::Adam optimizer(model.parameters(), torch::optim::AdamOptions(learning_rate));
+
 
 	while (1){
 		struct rte_mbuf *bufs[BURST_SIZE];
@@ -106,7 +105,6 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 						// update the Chen's estimation based on the packet received...
 						struct payload * obj= (struct payload *)(udp_hdr + 1);
 						uint64_t receipt_time = rte_rdtsc();
-						fdinfo.evicted_time = fdinfo.arr_timestamp[fdinfo.next_evicted].hb_timestamp;
 
 						printf("storing the receipt time into index: %d\n", fdinfo.next_avail);
 
@@ -114,17 +112,15 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 						fdinfo.arr_timestamp[fdinfo.next_avail].heartbeat_id = pkt_cnt;
 						fdinfo.arr_timestamp[fdinfo.next_avail].hb_timestamp = receipt_time;
 						// printf("fdinfo + 1: %d, take mod: %d, ARR_SIZE: %d\n", fdinfo.next_avail+1, (fdinfo.next_avail + 1) % 12, ARR_SIZE);
-
 						
 						// increment the next_avail variable 
-						fdinfo.next_avail = (fdinfo.next_avail + 1) % 10;
+						fdinfo.next_avail = (fdinfo.next_avail + 1) % 12;
 
 						// if (unlikely(pkt_cnt == HEARTBEAT_N)) {
 						if (pkt_cnt == HEARTBEAT_N) {
 							for (int i = 0; i < ARR_SIZE; i++){
 								printf("%lu: %lu | ", fdinfo.arr_timestamp[i].heartbeat_id, fdinfo.arr_timestamp[i].hb_timestamp);
 							}
-
 							printf("\n");
 
 							torch::Tensor input = torch::arange(1, HEARTBEAT_N);
@@ -134,16 +130,16 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 							input = torch::Tensor(receipt_time);
 
 							model.predict(model, input.reshape({1,1,1}));
-
+				
 							printf("putting the first estimate %lu\n", fdinfo.ea);
 							rte_timer_reset(tim, fdinfo.ea - receipt_time, SINGLE, lcore_id, timer1_cb, (void *)(fdinfo.ea - receipt_time));
 						} else if (pkt_cnt > HEARTBEAT_N){
 							// calculate the new estimeated arrival time 
-							fdinfo.ea = fdinfo.ea + ((receipt_time - (fdinfo.evicted_time) / HEARTBEAT_N));
+							fdinfo.ea = fdinfo.ea + ((receipt_time - (fdinfo.arr_timestamp[fdinfo.next_evicted]).hb_timestamp) / HEARTBEAT_N);
 							printf("FD: %lu th HB arriving, at time %lu, esti: %lu\n", pkt_cnt, receipt_time, fdinfo.ea);
 
 							// update the next_evicted variable
-							fdinfo.next_evicted = (fdinfo.next_evicted + 1) % 10;
+							fdinfo.next_evicted = (fdinfo.next_evicted + 1) % 12;
 							
 							// rewire the timer to the next estimation of the arrival time
 							rte_timer_reset(tim, fdinfo.ea - receipt_time, SINGLE, lcore_id, timer1_cb, (void *)(fdinfo.ea - receipt_time));
