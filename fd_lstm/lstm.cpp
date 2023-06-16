@@ -1,95 +1,82 @@
 #include "lstm.h"
 
-#include <torch/torch.h>
+LSTMModel::LSTMModel(int in_features, int hidden_layer_size, int out_size, int num_layers, bool batch_first){
+    lstm = torch::nn::LSTM(lstmOption(in_features, hidden_layer_size, num_layers, batch_first));
+    ln = torch::nn::Linear(hidden_layer_size, out_size);
 
-// Define the LSTM model
-struct LSTMModel : torch::nn::Module {
-    LSTMModel(int inputSize, int hiddenSize, int outputSize)
-        : lstm(torch::nn::LSTMOptions(inputSize, hiddenSize).batch_first(true)),
-          fc(outputSize) {
-        register_module("lstm", lstm);
-        register_module("fc", fc);
-    }
+    lstm = register_module("lstm",lstm);
+    ln = register_module("ln",ln);
+}
 
-    torch::Tensor forward(torch::Tensor x) {
-        torch::Tensor output, hiddenState;
-        std::tie(output, hiddenState) = lstm(x);
-        output = fc(output[:, -1, :]);
-        return output;
-    }
+torch::Tensor LSTMModel::forward(torch::Tensor x){
+    auto lstm_out = lstm->forward(x);
+    auto predictions = ln->forward(std::get<0>(lstm_out));
+    return predictions.select(1,-1);
+}
 
-    torch::nn::LSTM lstm;
-    torch::nn::Linear fc;
-};
-
-// Function to train the LSTM model
-void trainModel(LSTMModel& model, torch::Device device, torch::nn::L1Loss lossFunc,
-                torch::optim::Adam optimizer, torch::Tensor trainX, torch::Tensor trainY, int epochs) {
-    model->train();
-    model->to(device);
+// trainX is the training input
+// trainY is the training output 
+void LSTMModel::trainModel(LSTMModel& model, torch::Device device, torch::nn::MSELoss lossFunc,
+                torch::optim::Adam& optimizer, torch::Tensor trainX, torch::Tensor trainY, int epochs)
+{
+    model.train();
+    model.to(device);
     trainX = trainX.to(device);
     trainY = trainY.to(device);
+    
+    int epoch;
+    for (epoch = 1; epoch <= epochs; epoch++){
+        torch::Tensor output = model.forward(trainX);
+        torch::Tensor loss = lossFunc(output, trainY);
 
-    for (int epoch = 0; epoch < epochs; ++epoch) {
+        // backprop and oiptimize
         optimizer.zero_grad();
-        auto output = model(trainX);
-        auto loss = lossFunc(output, trainY);
         loss.backward();
         optimizer.step();
+
+        // print the progress
+        if (epoch  % 5 == 0){
+            std::cout << "Epoch: " << epoch << ", Loss: " << loss.item<float>() << std::endl;
+        }
     }
 }
 
-// this give additional multiplier for 
-struct CustomLoss : torch::nn::Module {
-  CustomLoss() {}
+torch::Tensor LSTMModel::predict(LSTMModel& model, torch::Tensor input) {
+    model.eval(); // Set the model to evaluation mode
 
-  torch::nn::MSELoss lossFn;
-  torch::Tensor loss
+    // Forward pass
+    torch::Tensor output = model.forward(input);
 
-  torch::Tensor forward(torch::Tensor predicted, torch::Tensor target) {
-    int predicted_val = predicted.item<int>();
-    int target = predicted.item<int>();
-    
-    if (predicted > target){
-        loss = lossFn(predicted, target);
-        
-    }
-    return loss;
-  }
-};
+    model.train(); // Set the model back to training mode
 
-
-// Function to make predictions using the LSTM model
-torch::Tensor predict(LSTMModel& model, torch::Device device, torch::Tensor testX) {
-    model->eval();
-    model->to(device);
-    testX = testX.to(device);
-    auto output = model(testX);
     return output;
 }
 
-int main() {
+// int main(){
+//     // number of features at a single timestamp
+//     // in the context of fd, it should be one single scalar valued timestamp
+//     int input_size = 1;
+//     int hidden_size = 4;
+//     int output_size = 1;
+//     int num_layers = 1;
+//     bool batch_first = true;
+//     int num_epochs = 100;
+//     int batch_size = 1;
+//     float learning_rate = 0.001;
+//     // sequence length refers to the length or number of time steps in a sequence.
+//     // It represents how far back in time the LSTM can look when processing the input sequence.
+//     int sequence_length = 3;
 
-    // Convert data to tensors
-    torch::Tensor trainX = torch::from_blob(trainXData, {trainSize, 1, lookBack}, torch::kFloat32);
-    torch::Tensor trainY = torch::from_blob(trainYData, {trainSize, 1}, torch::kFloat32);
-    torch::Tensor testX = torch::from_blob(testXData, {testSize, 1, lookBack}, torch::kFloat32);
+//     // create an instance of the model 
+//     LSTMModel model(input_size, hidden_size, output_size, num_layers, batch_first);
 
-    // Define the model and other parameters
-    int inputSize = 1;
-    int hiddenSize = 4;
-    int outputSize = 1;
-    LSTMModel model(inputSize, hiddenSize, outputSize);
-    torch::nn::L1Loss lossFunc;
-    torch::optim::Adam optimizer(model.parameters(), torch::optim::AdamOptions(0.001));
+//     // define the loss anf optimization
+//     torch::nn::MSELoss criterion;
+//     torch::optim::Adam optimizer(model.parameters(), torch::optim::AdamOptions(learning_rate));
 
-    // Train the model
-    int epochs = 100;
-    trainModel(model, device, lossFunc, optimizer, trainX, trainY, epochs);
+//     // define some random inputs;
+//     torch::Tensor input = torch::randn({batch_size, sequence_length, input_size});
+//     torch::Tensor target = torch::randn({batch_size, output_size});
 
-    // Make predictions
-    torch::Tensor predictions = predict(model, device, testX);
-
-    
-    return 0;
-}
+//     model.trainModel(model, torch::kCPU, criterion, optimizer, input, target, num_epochs);
+// }
