@@ -1,4 +1,5 @@
 #include "recv_heartbeat.h"
+#include "lstm.h"
 
 
 static void
@@ -46,6 +47,10 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 	printf("Core %u doing RX dequeue.\n", lcore_id);
 
 	uint64_t pkt_cnt = 0;
+
+
+    torch::Device device(torch::kCPU);
+
 
 	while (1){
 		struct rte_mbuf *bufs[BURST_SIZE];
