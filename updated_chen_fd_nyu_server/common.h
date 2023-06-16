@@ -74,7 +74,7 @@ struct hb_timestamp {
     uint64_t hb_timestamp;
 };
 
-#define ARR_SIZE HEARTBEAT_N+2
+#define ARR_SIZE HEARTBEAT_N
 
 struct fd_info {
     // heartbeat interval in melli-second
@@ -87,6 +87,9 @@ struct fd_info {
     // keep track of the last n timestamps
     // +2 to make the update procedure smoother
     struct hb_timestamp arr_timestamp[ARR_SIZE];
+
+    // the timestamp that got evicted
+    uint64_t evicted_time;
 
     int next_evicted;
     int next_avail;
