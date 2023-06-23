@@ -36,12 +36,12 @@ int lcore_send_heartbeat_pkt(struct lcore_params *p, uint64_t hb_id)
     struct rte_udp_hdr *udp_hdr;
 
     //init mac
-    struct rte_ether_addr s_addr = {{0x08, 0xc0, 0xeb, 0xd1, 0xfc, 0x5e}};
-    struct rte_ether_addr d_addr = {{0xb4, 0x05, 0x5d, 0xf6, 0x1a, 0xe3}};
+    struct rte_ether_addr d_addr = {{0x08, 0xc0, 0xeb, 0xd1, 0xfc, 0x5e}};
+    struct rte_ether_addr s_addr = {{0xb4, 0x05, 0x5d, 0xf6, 0x1a, 0xe3}};
 
     //init IP header
-    rte_be32_t s_ip_addr = string_to_ip("192.168.0.16");
-    rte_be32_t d_ip_addr = string_to_ip("192.168.0.11");
+    rte_be32_t d_ip_addr = string_to_ip("192.168.0.16");
+    rte_be32_t s_ip_addr = string_to_ip("192.168.0.11");
     uint16_t ether_type = rte_cpu_to_be_16(0x0800);
 
     struct rte_mbuf *pkts[BURST_SIZE_TX];
