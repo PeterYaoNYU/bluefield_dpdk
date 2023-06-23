@@ -130,12 +130,32 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 
 							printf("\n");
 
-							torch::Tensor input = torch::arange(1, HEARTBEAT_N);
+							std::cout << std::fixed << std::setprecision(0);
+
+							torch::Tensor input = torch::arange(1, HEARTBEAT_N+1, torch::kFloat64).reshape({batch_size, HEARTBEAT_N, input_size});
+							input = input.to(torch::kFloat64);
+							std::cout << "Input:" << std::endl;
+    						std::cout << input << std::endl;
+
+							int64_t signedValues[HEARTBEAT_N];
+
+							for (i = 0; i < HEARTBEAT_N; i++){
+								signedValues[i] = static_cast<int64_t>(fdinfo.arr_timestamp[i].hb_timestamp);
+							}
+							
 							// cannot do that, arr_timestamp is a complicated structure, needs to change this! but it compiles fine
-							torch::Tensor target = torch::from_blob(fdinfo.arr_timestamp, {batch_size, HEARTBEAT_N, input_size});
+							torch::Tensor target = torch::from_blob(signedValues, {batch_size, HEARTBEAT_N, input_size}, torch::kLong);
+							std::cout << "Target (Long64 bits):" << std::endl;
+    						std::cout << target << std::endl;
+
+							target = target.to(torch::kFloat64);
+
+							std::cout << "Target:" << std::endl;
+    						std::cout << target << std::endl;
 							model.trainModel(model, device, criterion, optimizer, input, target, num_epochs);
 
 							input = torch::from_blob(&long_receipt_time, {1}, torch::kLong);
+							input = input.to(torch::kFloat64);
 
 							model.predict(model, input.reshape({1,1,1}));
 
