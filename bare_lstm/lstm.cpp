@@ -96,12 +96,12 @@ int main(){
 
     // define some random inputs;
     input = input.view({batch_size, 10 , input_size});
-    input = input.to(torch::kFloat32);
+    input = input.to(torch::kFloat64);
 
     std::cout << "Tensor: " << input << std::endl;
     torch::Tensor target = torch::tensor({13771002143241345}, torch::kInt64);
     target = target.view({batch_size, output_size});
-    target = target.to(torch::kFloat32);
+    target = target.to(torch::kFloat64);
 
     std::cout << "Target: " << target << std::endl;
 

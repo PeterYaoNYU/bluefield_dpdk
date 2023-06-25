@@ -120,54 +120,73 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 
 						
 						// increment the next_avail variable 
-						fdinfo.next_avail = (fdinfo.next_avail + 1) % 10;
+						fdinfo.next_avail = (fdinfo.next_avail + 1) % 32;
 
 						// if (unlikely(pkt_cnt == HEARTBEAT_N)) {
 						if (pkt_cnt == HEARTBEAT_N) {
-							for (int i = 0; i < ARR_SIZE; i++){
+							int i;
+							for (i = 0; i < ARR_SIZE; i++){
 								printf("%lu: %lu | ", fdinfo.arr_timestamp[i].heartbeat_id, fdinfo.arr_timestamp[i].hb_timestamp);
 							}
 
 							printf("\n");
 
-							std::cout << std::fixed << std::setprecision(0);
+							// a lock is needed to synchronize,
+							// so that the copy is cpmlete before the new data is written in
 
-							torch::Tensor input = torch::arange(1, HEARTBEAT_N+1, torch::kFloat64).reshape({batch_size, HEARTBEAT_N, input_size});
-							input = input.to(torch::kFloat64);
-							std::cout << "Input:" << std::endl;
-    						std::cout << input << std::endl;
-
-							int64_t signedValues[HEARTBEAT_N];
-
-							for (i = 0; i < HEARTBEAT_N; i++){
-								signedValues[i] = static_cast<int64_t>(fdinfo.arr_timestamp[i].hb_timestamp);
+							std::vector<int64_t> input_vec;
+							for (i = 0; i < ARR_SIZE - 1; i++){
+								input_vec.push_back(fdinfo.arr_timestamp[i].hb_timestamp);
 							}
+
+							std::vector<int64_t> target_vec;
+							target_vec.push_back(fdinfo.arr_timestamp[ARR_SIZE-1].hb_timestamp);
+
+							torch::Tensor input = torch::tensor(input_vec);
+							input = input.view({batch_size, HEARTBEAT_N-1 , input_size});
+							input = input.to(torch::kFloat32);
+
+							torch::Tensor target = torch::tensor(target_vec);
+							target = target.view({batch_size, output_size});
+							target = target.to(torch::kFloat32);
+
+							std::cout << "Tensor: " << input << std::endl;
+							std::cout << "Target: " << target << std::endl;
+
+							// torch::Tensor input = torch::arange(1, HEARTBEAT_N+1, torch::kFloat64).reshape({batch_size, HEARTBEAT_N, input_size});
+							// input = input.to(torch::kFloat64);
+							// std::cout << "Input:" << std::endl;
+    						// std::cout << input << std::endl;
+
+							// int64_t signedValues[HEARTBEAT_N];
+
+							// for (i = 0; i < HEARTBEAT_N; i++){
+							// 	signedValues[i] = static_cast<int64_t>(fdinfo.arr_timestamp[i].hb_timestamp);
+							// }
 							
-							// cannot do that, arr_timestamp is a complicated structure, needs to change this! but it compiles fine
-							torch::Tensor target = torch::from_blob(signedValues, {batch_size, HEARTBEAT_N, input_size}, torch::kLong);
-							std::cout << "Target (Long64 bits):" << std::endl;
-    						std::cout << target << std::endl;
+							// // cannot do that, arr_timestamp is a complicated structure, needs to change this! but it compiles fine
+							// torch::Tensor target = torch::from_blob(signedValues, {batch_size, HEARTBEAT_N, input_size}, torch::kLong);
+							// std::cout << "Target (Long64 bits):" << std::endl;
+    						// std::cout << target << std::endl;
 
-							target = target.to(torch::kFloat64);
+							// target = target.to(torch::kFloat64);
 
-							std::cout << "Target:" << std::endl;
-    						std::cout << target << std::endl;
-							model.trainModel(model, device, criterion, optimizer, input, target, num_epochs);
+							// std::cout << "Target:" << std::endl;
+    						// std::cout << target << std::endl;
+							model.trainModel(model, device, criterion, optimizer, input, target, 1);
+							std::cout << "training complete" << std::endl;
 
-							input = torch::from_blob(&long_receipt_time, {1}, torch::kLong);
-							input = input.to(torch::kFloat64);
 
-							model.predict(model, input.reshape({1,1,1}));
 
-							printf("putting the first estimate %lu\n", fdinfo.ea);
-							rte_timer_reset(tim, fdinfo.ea - receipt_time, SINGLE, lcore_id, timer1_cb, (void *)(fdinfo.ea - receipt_time));
+							// printf("putting the first estimate %lu\n", fdinfo.ea);
+							// rte_timer_reset(tim, fdinfo.ea - receipt_time, SINGLE, lcore_id, timer1_cb, (void *)(fdinfo.ea - receipt_time));
 						} else if (pkt_cnt > HEARTBEAT_N){
 							// calculate the new estimeated arrival time 
 							fdinfo.ea = fdinfo.ea + ((receipt_time - (fdinfo.evicted_time) / HEARTBEAT_N));
 							printf("FD: %lu th HB arriving, at time %lu, esti: %lu\n", pkt_cnt, receipt_time, fdinfo.ea);
 
 							// update the next_evicted variable
-							fdinfo.next_evicted = (fdinfo.next_evicted + 1) % 10;
+							fdinfo.next_evicted = (fdinfo.next_evicted + 1) % 32;
 							
 							// rewire the timer to the next estimation of the arrival time
 							rte_timer_reset(tim, fdinfo.ea - receipt_time, SINGLE, lcore_id, timer1_cb, (void *)(fdinfo.ea - receipt_time));

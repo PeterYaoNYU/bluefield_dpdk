@@ -111,7 +111,7 @@ int lcore_send_heartbeat_pkt(struct lcore_params *p, uint64_t hb_id, struct rte_
         }
     }
 
-    printf("Sender: %u packets were sent in this burst, id: %lu\n", sent, hb_id);
+    // printf("Sender: %u packets were sent in this burst, id: %lu\n", sent, hb_id);
 
     return 0;
 }
