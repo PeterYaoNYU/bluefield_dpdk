@@ -7,7 +7,7 @@
 is_server                 = true
 msg_size                  = 64
 num_concurr_msgs          = 1
-sock_port                 = 6668
+sock_port                 = 6669
 
 ************ End of Configuraion ************
 

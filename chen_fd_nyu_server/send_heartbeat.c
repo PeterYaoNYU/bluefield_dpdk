@@ -36,8 +36,8 @@ int lcore_send_heartbeat_pkt(struct lcore_params *p, uint64_t hb_id)
     struct rte_udp_hdr *udp_hdr;
 
     //init mac
-    struct rte_ether_addr d_addr = {{0x08, 0xc0, 0xeb, 0xd1, 0xfc, 0x5e}};
-    struct rte_ether_addr s_addr = {{0xb4, 0x05, 0x5d, 0xf6, 0x1a, 0xe3}};
+    struct rte_ether_addr d_addr = {{0xb4, 0x05, 0x5d, 0xf6, 0x1a, 0xe3}};
+    struct rte_ether_addr s_addr = {{0x08, 0xc0, 0xeb, 0xd1, 0xfc, 0x52}};
 
     //init IP header
     rte_be32_t d_ip_addr = string_to_ip("192.168.0.16");

@@ -9,12 +9,12 @@ int modify_qp_to_rts (struct ibv_qp *qp, uint32_t target_qp_num, uint16_t target
     int ret = 0;
 
 	struct ibv_qp_attr qp_attr;
-	memset(&attr, 0, sizeof(attr));
+	memset(&qp_attr, 0, sizeof(qp_attr));
 
 	qp_attr.qp_state	= IBV_QPS_INIT;
 	qp_attr.pkey_index 	= 0;
 	qp_attr.port_num 	= IB_PORT;
-	qp_attr.qkey 		= 0x22222222;
+	// qp_attr.qkey 		= 0x22222222;
 	qp_attr.qp_access_flags = IBV_ACCESS_LOCAL_WRITE |
 	                       	IBV_ACCESS_REMOTE_READ |
 	                       	IBV_ACCESS_REMOTE_ATOMIC |
@@ -63,7 +63,7 @@ int modify_qp_to_rts (struct ibv_qp *qp, uint32_t target_qp_num, uint16_t target
 	// 		    IBV_QP_MIN_RNR_TIMER);
 
 	ret = ibv_modify_qp(qp, &qp_attr, IBV_QP_STATE);
-	check (ret == 0, "Failed to change qp to rtr.");
+	check (ret == 0, "Failed to change qp to RTR.");
     }
 
     /* Change QP state to RTS */
