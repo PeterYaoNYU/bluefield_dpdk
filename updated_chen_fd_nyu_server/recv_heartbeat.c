@@ -119,7 +119,7 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 							rte_timer_reset(tim, fdinfo.ea - receipt_time, SINGLE, lcore_id, timer1_cb, (void *)(fdinfo.ea - receipt_time));
 						} else if (pkt_cnt > HEARTBEAT_N){
 							// calculate the new estimeated arrival time 
-							fdinfo.ea = fdinfo.ea + ((receipt_time - (fdinfo.evicted_time) / HEARTBEAT_N));
+							fdinfo.ea = fdinfo.ea + ((receipt_time - (fdinfo.evicted_time)) / HEARTBEAT_N);
 							printf("FD: %lu th HB arriving, at time %lu, esti: %lu\n", pkt_cnt, receipt_time, fdinfo.ea);
 
 							// update the next_evicted variable
