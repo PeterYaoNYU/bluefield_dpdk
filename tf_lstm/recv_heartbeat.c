@@ -1,7 +1,7 @@
 #include "recv_heartbeat.h"
 
 mqd_t
-create_msg_queue()
+create_send_msg_queue()
 {
 	// create the memory queue in the system
 	// if succeed, return the message queue descriptor for use of other functions
@@ -76,6 +76,10 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 
 	memset(fdinfo.arr_timestamp, 0, sizeof(fdinfo.arr_timestamp));
 
+	size_t input_size = sizeof(fdinfo);
+
+	mqd_t send_mqd = create_send_msg_queue();
+
 	const int socket_id = rte_socket_id();
 
 	unsigned lcore_id = rte_lcore_id();
@@ -136,22 +140,9 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 						fdinfo.next_avail = (fdinfo.next_avail + 1) % 10;
 
 						// if (unlikely(pkt_cnt == HEARTBEAT_N)) {
-						if (pkt_cnt == HEARTBEAT_N) {
-							for (int i = 0; i < ARR_SIZE; i++){
-								printf("%lu: %lu | ", fdinfo.arr_timestamp[i].heartbeat_id, fdinfo.arr_timestamp[i].hb_timestamp);
-							}
-							int i;
-							uint64_t moving_sum = 0;
-							struct hb_timestamp hb;
-							for (i = 0; i < HEARTBEAT_N; i++){
-								hb = fdinfo.arr_timestamp[i];
-								moving_sum += (hb.hb_timestamp - hb.heartbeat_id * hz);
-								// printf("%d: %lu, moving sum: %lu\n", hb.heartbeat_id, (hb.hb_timestamp - hb.heartbeat_id * fdinfo.delta_i * hz / ), moving_sum);
-								printf("%lu: %lu, moving sum: %lu\n", hb.heartbeat_id, (hb.hb_timestamp - hb.heartbeat_id * hz), moving_sum);
-							}
-							fdinfo.ea = moving_sum / HEARTBEAT_N + (HEARTBEAT_N+1) * hz;
-							printf("putting the first estimate %lu\n", fdinfo.ea);
-							rte_timer_reset(tim, fdinfo.ea - receipt_time, SINGLE, lcore_id, timer1_cb, (void *)(fdinfo.ea - receipt_time));
+						if (pkt_cnt == HEARTBEAT_N) {	
+							send_to_ml_model(&fdinfo, send_mqd, input_size);
+							// rte_timer_reset(tim, fdinfo.ea - receipt_time, SINGLE, lcore_id, timer1_cb, (void *)(fdinfo.ea - receipt_time));
 						} else if (pkt_cnt > HEARTBEAT_N){
 							// calculate the new estimeated arrival time 
 							fdinfo.ea = fdinfo.ea + ((receipt_time - (fdinfo.evicted_time)) / HEARTBEAT_N);
