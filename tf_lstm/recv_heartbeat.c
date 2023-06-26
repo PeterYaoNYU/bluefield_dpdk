@@ -1,5 +1,40 @@
 #include "recv_heartbeat.h"
 
+mqd_t
+create_msg_queue()
+{
+	// create the memory queue in the system
+	// if succeed, return the message queue descriptor for use of other functions
+	// else, indicate that there is an error and quit the system
+	mqd_t mq;
+	struct mq_attr attr;
+
+	attr.mq_flags = 0;
+	attr.mq_maxmsg = 10;
+	attr.mq_msgsize = sizeof(struct fd_info);
+	attr.mq_curmsgs = 0;
+
+	// create the message queue explicitly
+	mq = mq_open(QUEUE_NAME, O_CREAT | O_WRONLY, 0666, &attr);
+	if (mq == (mqd_t)-1) {
+        rte_exit(EXIT_FAILURE, "Fail to initialize the MsgQueue");
+    } else {
+		return mq;
+	}
+}
+
+int 
+send_to_ml_model(struct fd_info * fdinfo, mqd_t mq_desc, size_t input_size)
+{
+	int ret = mq_send(mq, fdinfo, input_size, 0);
+
+	if (ret == -1){
+		rte_exit(EXIT_FAILURE, "Fail to pass the data to the ml model");
+	}
+
+	return 0;
+}
+
 
 static void
 timer1_cb(struct rte_timer *tim, void *arg)
