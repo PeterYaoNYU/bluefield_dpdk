@@ -47,7 +47,7 @@ int main(int argc, char *argv[])
     };
     
     // clear the last N arrival timestamp history
-    memset(fdinfo.arr_timestamp, 0, sizeof(struct hb_timestamp) * (HEARTBEAT_N));
+    memset(fdinfo.arr_timestamp, 0, sizeof(uint64_t) * (HEARTBEAT_N));
 
     // init the RTE timer library
     rte_timer_subsystem_init();

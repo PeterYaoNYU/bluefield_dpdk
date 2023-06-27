@@ -86,7 +86,7 @@ struct fd_info {
 
     // keep track of the last n timestamps
     // +2 to make the update procedure smoother
-    struct hb_timestamp arr_timestamp[ARR_SIZE];
+    uint64_t arr_timestamp[ARR_SIZE];
 
     // the timestamp that got evicted
     uint64_t evicted_time;

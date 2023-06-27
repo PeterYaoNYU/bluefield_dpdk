@@ -87,15 +87,11 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 						// update the Chen's estimation based on the packet received...
 						struct payload * obj= (struct payload *)(udp_hdr + 1);
 						uint64_t receipt_time = rte_rdtsc();
-						fdinfo.evicted_time = fdinfo.arr_timestamp[fdinfo.next_evicted].hb_timestamp;
+						fdinfo.evicted_time = fdinfo.arr_timestamp[fdinfo.next_evicted];
 
 						printf("storing the receipt time into index: %d\n", fdinfo.next_avail);
 
-						// fdinfo.arr_timestamp[fdinfo.next_avail] = (struct hb_timestamp) { .heartbeat_id = pkt_cnt, .hb_timestamp = receipt_time};
-						fdinfo.arr_timestamp[fdinfo.next_avail].heartbeat_id = pkt_cnt;
-						fdinfo.arr_timestamp[fdinfo.next_avail].hb_timestamp = receipt_time;
-						// printf("fdinfo + 1: %d, take mod: %d, ARR_SIZE: %d\n", fdinfo.next_avail+1, (fdinfo.next_avail + 1) % 12, ARR_SIZE);
-
+						fdinfo.arr_timestamp[fdinfo.next_avail] = receipt_time;
 						
 						// increment the next_avail variable 
 						fdinfo.next_avail = (fdinfo.next_avail + 1) % 10;
@@ -103,16 +99,16 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 						// if (unlikely(pkt_cnt == HEARTBEAT_N)) {
 						if (pkt_cnt == HEARTBEAT_N) {
 							for (int i = 0; i < ARR_SIZE; i++){
-								printf("%lu: %lu | ", fdinfo.arr_timestamp[i].heartbeat_id, fdinfo.arr_timestamp[i].hb_timestamp);
+								printf("%d: %lu | ", i, fdinfo.arr_timestamp[i]);
 							}
+							printf("\n");
 							int i;
 							uint64_t moving_sum = 0;
-							struct hb_timestamp hb;
+							uint64_t hb_timestamp;
 							for (i = 0; i < HEARTBEAT_N; i++){
-								hb = fdinfo.arr_timestamp[i];
-								moving_sum += (hb.hb_timestamp - hb.heartbeat_id * hz);
-								// printf("%d: %lu, moving sum: %lu\n", hb.heartbeat_id, (hb.hb_timestamp - hb.heartbeat_id * fdinfo.delta_i * hz / ), moving_sum);
-								printf("%lu: %lu, moving sum: %lu\n", hb.heartbeat_id, (hb.hb_timestamp - hb.heartbeat_id * hz), moving_sum);
+								hb_timestamp = fdinfo.arr_timestamp[i];
+								moving_sum += (hb_timestamp - i * hz);
+								printf("%d: %lu, moving sum: %lu\n", i, (hb_timestamp - i * hz), moving_sum);
 							}
 							fdinfo.ea = moving_sum / HEARTBEAT_N + (HEARTBEAT_N+1) * hz;
 							printf("putting the first estimate %lu\n", fdinfo.ea);
@@ -130,15 +126,12 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 						} else {
 							printf("too early to put an estimate, but the arrival time is %lu\n", receipt_time);
 							for (int i = 0; i < ARR_SIZE; i++){
-								printf("%lu: %lu | ", fdinfo.arr_timestamp[i].heartbeat_id, fdinfo.arr_timestamp[i].hb_timestamp);
+								printf("%d: %lu | ", i, fdinfo.arr_timestamp[i]);
 							}
 						}
-
 					}
 				}
 			}
-
-
 			rte_pktmbuf_free(bufs[i]);
 		}
 
