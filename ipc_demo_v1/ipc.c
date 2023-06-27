@@ -4,6 +4,11 @@
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <mqueue.h>
+#include <errno.h>
+#include <signal.h>
+#include <string.h>
+
+#define QUEUE_NAME "/ml_data"
 
 
 mqd_t mq;
@@ -49,7 +54,6 @@ send_to_ml_model(char * mbuf, mqd_t mq_desc, size_t input_size)
 
 	if (ret == -1){
 		perror("mq_send");
-		fprintf(stderr, "Error: %s\n", strerror(errno));
 		exit(1);
 	}
 	return 0;
@@ -59,8 +63,15 @@ int main(int argc, char * argv[])
 {
     mq = create_send_msg_queue();
 	char * mbuf = "thank you";
-	size_t size = sizeof(mbuf);
+	size_t size = strlen(mbuf);
+	printf("size of the msg: %ld\n", size);
 
-	send_to_ml_model(mbuf, mq, size);
+	send_to_ml_model(mbuf, mq, size+1);
 	printf("send finished \n");
+
+	sleep(1000);
+
+	mq_close(mq);
+	mq_unlink(QUEUE_NAME);
+	printf("Message queue closed.\n");
 }
