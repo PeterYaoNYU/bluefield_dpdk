@@ -41,7 +41,6 @@ struct __attribute__((packed)) fd_info {
     int next_avail;
 };
 
-uint64_t arr_timestamp[ARR_SIZE];
 
 mqd_t mq;
 
@@ -84,6 +83,10 @@ send_to_ml_model(uint64_t* ts, mqd_t mq_desc, size_t input_size)
 	printf("sending to the descriptor: %d\n", (int)mq_desc);
 	int ret = mq_send(mq_desc, (const char*)ts, input_size, 0);
 
+	for (int i = 0; i < ARR_SIZE; i++){
+		printf("%ld\n",ts[i]);
+	}
+
 	if (ret == -1){
 		perror("mq_send");
 		exit(1);
@@ -96,13 +99,15 @@ int main(int argc, char * argv[])
 	// Install signal handler for SIGINT (keyboard interrupt)
     signal(SIGINT, keyInteruptHandler);
 
+	uint64_t * arr_timestamp = (uint64_t *)malloc(sizeof(uint64_t) * ARR_SIZE);
+
 	for (int i = 10; i < ARR_SIZE + 10; i++){
-		arr_timestamp[i]= i * i;
-		printf("%ld\n",arr_timestamp[i]);
+		arr_timestamp[i-10]= i * i;
+		printf("%ld\n",arr_timestamp[i-10]);
 	}
 
     mq = create_send_msg_queue();
-	size_t size = sizeof(arr_timestamp);
+	size_t size = sizeof(uint64_t) * ARR_SIZE;
 	printf("size of the msg: %ld\n", size);
 
 	send_to_ml_model(arr_timestamp, mq, size);

@@ -1,5 +1,6 @@
 import posix_ipc
 import ctypes
+import struct
 
 ARR_SIZE = 10
 
@@ -31,10 +32,24 @@ mq = posix_ipc.MessageQueue(mq_name)
 # Receive message from the queue
 message, _ = mq.receive()
 
-# Process the received message
-received_data = ctypes.cast(message, ctypes.POINTER(ctypes.c_uint64*ARR_SIZE)).contents
+# !!!
+# we need to convert the binary data to the python data structure, using Struct package 
 
-for element in received_data:
-    print(element)
+# Calculate the expected size of the received array
+expected_size = ARR_SIZE * struct.calcsize('Q')
+
+# Ensure that the received message has the expected size
+if len(message) != expected_size:
+    print(f"Received message size ({len(message)}) doesn't match the expected size ({expected_size}).")
+    exit(1)
+else:
+    print("size matches")
+
+# Interpret the received message as an array of uint64_t
+received_array = struct.unpack(f'{ARR_SIZE}Q', message)
+
+# Access the received array elements
+for element in received_array:
+    print(element, type(element))
 # Close the message queue
 mq.close()
