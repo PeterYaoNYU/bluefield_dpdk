@@ -28,6 +28,7 @@
 #include <stdint.h>
 #include <errno.h>
 #include <sys/queue.h>
+#include <signal.h>
 
 #include "util.h"
 

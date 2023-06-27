@@ -1,12 +1,20 @@
 #include "recv_heartbeat.h"
 
+void keyInteruptHandler(int signal) {
+    if (signal == SIGINT) {
+        // Close the message queue
+        mq_close(mq);
+        printf("Message queue closed.\n");
+        exit(0);
+    }
+}
+
 mqd_t
 create_send_msg_queue()
 {
 	// create the memory queue in the system
 	// if succeed, return the message queue descriptor for use of other functions
 	// else, indicate that there is an error and quit the system
-	mqd_t mq;
 	struct mq_attr attr;
 
 	attr.mq_flags = 0;
@@ -15,7 +23,8 @@ create_send_msg_queue()
 	attr.mq_curmsgs = 0;
 
 	// create the message queue explicitly
-	mq = mq_open(QUEUE_NAME, O_CREAT | O_WRONLY, 0666, &attr);
+	mq = mq_open(QUEUE_NAME, O_CREAT | O_RDWR, 0666, &attr);
+	printf("the msg queue desc is %d\n", (int)mq);
 	if (mq == (mqd_t)-1) {
         rte_exit(EXIT_FAILURE, "Fail to initialize the MsgQueue");
     } else {
@@ -26,10 +35,13 @@ create_send_msg_queue()
 int 
 send_to_ml_model(struct fd_info * fdinfo, mqd_t mq_desc, size_t input_size)
 {
-	int ret = mq_send(mq, fdinfo, input_size, 0);
+	printf("sending to the descriptor: %d\n", (int)mq_desc);
+	int ret = mq_send(mq_desc, (char*)fdinfo, input_size, 0);
 
 	if (ret == -1){
-		rte_exit(EXIT_FAILURE, "Fail to pass the data to the ml model");
+		perror("mq_send");
+		fprintf(stderr, "Error: %s\n", strerror(errno));
+		rte_exit(EXIT_FAILURE, "Fail to pass the data to the ml moden\n");
 	}
 
 	return 0;
@@ -86,6 +98,9 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 	printf("Core %u doing RX dequeue.\n", lcore_id);
 
 	uint64_t pkt_cnt = 0;
+
+	// Install signal handler for SIGINT (keyboard interrupt)
+    signal(SIGINT, keyInteruptHandler);
 
 	while (1){
 		struct rte_mbuf *bufs[BURST_SIZE];
@@ -164,7 +179,7 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 				}
 			}
 
-
+			mq_close(send_mqd);
 			rte_pktmbuf_free(bufs[i]);
 		}
 
