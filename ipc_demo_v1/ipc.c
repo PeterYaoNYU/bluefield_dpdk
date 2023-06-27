@@ -61,6 +61,9 @@ send_to_ml_model(char * mbuf, mqd_t mq_desc, size_t input_size)
 
 int main(int argc, char * argv[])
 {
+	// Install signal handler for SIGINT (keyboard interrupt)
+    signal(SIGINT, keyInteruptHandler);
+
     mq = create_send_msg_queue();
 	char * mbuf = "thank you";
 	size_t size = strlen(mbuf);
