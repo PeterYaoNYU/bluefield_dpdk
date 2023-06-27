@@ -4,6 +4,7 @@ void keyInteruptHandler(int signal) {
     if (signal == SIGINT) {
         // Close the message queue
         mq_close(mq);
+		mq_unlink(QUEUE_NAME);
         printf("Message queue closed.\n");
         exit(0);
     }
@@ -19,7 +20,7 @@ create_send_msg_queue()
 
 	attr.mq_flags = 0;
 	attr.mq_maxmsg = 10;
-	attr.mq_msgsize = sizeof(struct fd_info);
+	attr.mq_msgsize = sizeof(struct fd_info)+1;
 	attr.mq_curmsgs = 0;
 
 	// create the message queue explicitly
@@ -35,13 +36,28 @@ create_send_msg_queue()
 int 
 send_to_ml_model(struct fd_info * fdinfo, mqd_t mq_desc, size_t input_size)
 {
-	printf("sending to the descriptor: %d\n", (int)mq_desc);
-	int ret = mq_send(mq_desc, (char*)fdinfo, input_size, 0);
+	struct mq_attr attr;
+
+	attr.mq_flags = 0;
+	attr.mq_maxmsg = 10;
+	attr.mq_msgsize = sizeof(struct fd_info)+1;
+	attr.mq_curmsgs = 0;
+
+	// create the message queue explicitly
+	mq = mq_open(QUEUE_NAME, O_CREAT | O_RDWR, 0666, &attr);
+	printf("the msg queue desc is %d\n", (int)mq);
+	if (mq == (mqd_t)-1) {
+        rte_exit(EXIT_FAILURE, "Fail to initialize the MsgQueue");
+    }
+
+	int ret = mq_send(mq, (const char*)fdinfo, input_size, 0);
 
 	if (ret == -1){
 		perror("mq_send");
 		fprintf(stderr, "Error: %s\n", strerror(errno));
 		rte_exit(EXIT_FAILURE, "Fail to pass the data to the ml moden\n");
+	} else {
+		printf("%d bytes were sent\n", ret);
 	}
 
 	return 0;
@@ -90,7 +106,7 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 
 	size_t input_size = sizeof(fdinfo);
 
-	mqd_t send_mqd = create_send_msg_queue();
+	// mqd_t send_mqd = create_send_msg_queue();
 
 	const int socket_id = rte_socket_id();
 
@@ -156,7 +172,7 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 
 						// if (unlikely(pkt_cnt == HEARTBEAT_N)) {
 						if (pkt_cnt == HEARTBEAT_N) {	
-							send_to_ml_model(&fdinfo, send_mqd, input_size);
+							send_to_ml_model(&fdinfo, 100, input_size);
 							// rte_timer_reset(tim, fdinfo.ea - receipt_time, SINGLE, lcore_id, timer1_cb, (void *)(fdinfo.ea - receipt_time));
 						} else if (pkt_cnt > HEARTBEAT_N){
 							// calculate the new estimeated arrival time 
@@ -179,7 +195,7 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 				}
 			}
 
-			mq_close(send_mqd);
+			// mq_close(send_mqd);
 			rte_pktmbuf_free(bufs[i]);
 		}
 
