@@ -32,22 +32,9 @@ mq = posix_ipc.MessageQueue(mq_name)
 message, _ = mq.receive()
 
 # Process the received message
-received_data = ctypes.cast(message, ctypes.POINTER(Fd_info)).contents
+received_data = ctypes.cast(message, ctypes.POINTER(Hb_timestamp*ARR_SIZE)).contents
 
-delta_i = received_data.delta_i
-ea = received_data.ea
-evicted_time = received_data.evicted_time
-next_evicted = received_data.next_evicted
-next_avail = received_data.next_avail
-
-print(delta_i)
-print(ea)
-print(evicted_time)
-
-# arr_timestamp = received_data.arr_timestamp
-# first_content = arr_timestamp[0]
-# print(first_content.heartbeat_id)
-# print(first_content.hb_timestamp)
-
+for element in received_data:
+    print(f"field1 = {element.heartbeat_id}, field2 = {element.hb_timestamp}")
 # Close the message queue
 mq.close()
