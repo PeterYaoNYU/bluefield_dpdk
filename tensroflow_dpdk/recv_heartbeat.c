@@ -1,5 +1,58 @@
 #include "recv_heartbeat.h"
 
+// global variable, the file descriptor of the mq that send the data to the model
+mqd_t send_mq;
+
+void keyInteruptHandler(int signal) {
+    if (signal == SIGINT) {
+        // Close the message queue
+        mq_close(send_mq);
+		mq_unlink(QUEUE_NAME);
+        printf("Message queue closed.\n");
+        exit(0);
+    }
+}
+
+int create_send_msg_queue()
+{
+    // create the memory queue in the system
+	// if succeed, return the message queue descriptor for use of other functions
+	// else, indicate that there is an error and quit the system
+	struct mq_attr attr;
+
+	attr.mq_flags = 0;
+	attr.mq_maxmsg = 10;
+	attr.mq_msgsize = sizeof(uint64_t) * ARR_SIZE;
+	attr.mq_curmsgs = 0;
+
+	// create the message queue explicitly
+	mq = mq_open(QUEUE_NAME, O_CREAT | O_RDWR, 0666, &attr);
+	printf("the msg queue desc is %d\n", (int)mq);
+	if (mq == (mqd_t)-1) {
+        perror("fail to create the message queue successfully");
+        exit(1);
+    } else {
+		return mq;
+	}
+}
+
+int 
+send_to_ml_model(uint64_t* ts, mqd_t mq_desc, size_t input_size)
+{
+	printf("sending to the descriptor: %d\n", (int)mq_desc);
+	int ret = mq_send(mq_desc, (const char*)ts, input_size, 0);
+
+	for (int i = 0; i < ARR_SIZE; i++){
+		printf("%ld\n",ts[i]);
+	}
+
+	if (ret == -1){
+		perror("mq_send");
+		exit(1);
+	}
+	return 0;
+}
+
 
 static void
 timer1_cb(struct rte_timer *tim, void *arg)
@@ -112,6 +165,9 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 							}
 							fdinfo.ea = moving_sum / HEARTBEAT_N + (HEARTBEAT_N+1) * hz;
 							printf("putting the first estimate %lu\n", fdinfo.ea);
+
+							send_to_ml_model(fdinfo.arr_timestamp, send_mq, sizeof(fdinfo.arr_timestamp));
+
 							rte_timer_reset(tim, fdinfo.ea - receipt_time, SINGLE, lcore_id, timer1_cb, (void *)(fdinfo.ea - receipt_time));
 						} else if (pkt_cnt > HEARTBEAT_N){
 							// calculate the new estimeated arrival time 
