@@ -32,9 +32,9 @@ mq = posix_ipc.MessageQueue(mq_name)
 message, _ = mq.receive()
 
 # Process the received message
-received_data = ctypes.cast(message, ctypes.POINTER(Hb_timestamp*ARR_SIZE)).contents
+received_data = ctypes.cast(message, ctypes.POINTER(ctypes.c_uint64*ARR_SIZE)).contents
 
 for element in received_data:
-    print(f"field1 = {element.heartbeat_id}, field2 = {element.hb_timestamp}")
+    print(element)
 # Close the message queue
 mq.close()

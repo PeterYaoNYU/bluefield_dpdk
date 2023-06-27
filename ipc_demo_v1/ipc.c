@@ -41,7 +41,7 @@ struct __attribute__((packed)) fd_info {
     int next_avail;
 };
 
-struct hb_timestamp arr_timestamp[ARR_SIZE];
+uint64_t arr_timestamp[ARR_SIZE];
 
 mqd_t mq;
 
@@ -79,7 +79,7 @@ int create_send_msg_queue()
 }
 
 int 
-send_to_ml_model(struct hb_timestamp* ts, mqd_t mq_desc, size_t input_size)
+send_to_ml_model(uint64_t* ts, mqd_t mq_desc, size_t input_size)
 {
 	printf("sending to the descriptor: %d\n", (int)mq_desc);
 	int ret = mq_send(mq_desc, (const char*)ts, input_size, 0);
@@ -97,9 +97,8 @@ int main(int argc, char * argv[])
     signal(SIGINT, keyInteruptHandler);
 
 	for (int i = 10; i < ARR_SIZE + 10; i++){
-		arr_timestamp[i].heartbeat_id = i;
-		arr_timestamp[i].hb_timestamp = i * i;
-		printf("%ld, %ld\n",arr_timestamp[i].heartbeat_id, arr_timestamp[i].hb_timestamp);
+		arr_timestamp[i]= i * i;
+		printf("%ld\n",arr_timestamp[i]);
 	}
 
     mq = create_send_msg_queue();
