@@ -19,6 +19,7 @@ int create_send_msg_queue()
 	// if succeed, return the message queue descriptor for use of other functions
 	// else, indicate that there is an error and quit the system
 	struct mq_attr attr;
+	mqd_t mq;
 
 	attr.mq_flags = 0;
 	attr.mq_maxmsg = 10;
@@ -100,6 +101,8 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 	printf("Core %u doing RX dequeue.\n", lcore_id);
 
 	uint64_t pkt_cnt = 0;
+
+    send_mq = mq_open(QUEUE_NAME, O_RDWR);
 
 	while (1){
 		struct rte_mbuf *bufs[BURST_SIZE];
@@ -190,7 +193,6 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 			}
 			rte_pktmbuf_free(bufs[i]);
 		}
-
 	}
 	return 0;
 }
