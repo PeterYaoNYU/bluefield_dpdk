@@ -17,12 +17,12 @@
 #define DELTA_I 100
 #define ARR_SIZE HEARTBEAT_N
 
-struct hb_timestamp {
+struct __attribute__((packed)) hb_timestamp {
     uint64_t heartbeat_id;
     uint64_t hb_timestamp;
 };
 
-struct fd_info {
+struct __attribute__((packed)) fd_info {
     // heartbeat interval in melli-second
     int delta_i;
     // estimated arrival time for the next heartbeat
