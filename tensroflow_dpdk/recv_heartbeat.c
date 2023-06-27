@@ -1,68 +1,5 @@
 #include "recv_heartbeat.h"
 
-void keyInteruptHandler(int signal) {
-    if (signal == SIGINT) {
-        // Close the message queue
-        mq_close(mq);
-		mq_unlink(QUEUE_NAME);
-        printf("Message queue closed.\n");
-        exit(0);
-    }
-}
-
-mqd_t
-create_send_msg_queue()
-{
-	// create the memory queue in the system
-	// if succeed, return the message queue descriptor for use of other functions
-	// else, indicate that there is an error and quit the system
-	struct mq_attr attr;
-
-	attr.mq_flags = 0;
-	attr.mq_maxmsg = 10;
-	attr.mq_msgsize = sizeof(struct fd_info)+1;
-	attr.mq_curmsgs = 0;
-
-	// create the message queue explicitly
-	mq = mq_open(QUEUE_NAME, O_CREAT | O_RDWR, 0666, &attr);
-	printf("the msg queue desc is %d\n", (int)mq);
-	if (mq == (mqd_t)-1) {
-        rte_exit(EXIT_FAILURE, "Fail to initialize the MsgQueue");
-    } else {
-		return mq;
-	}
-}
-
-int 
-send_to_ml_model(struct fd_info * fdinfo, mqd_t mq_desc, size_t input_size)
-{
-	struct mq_attr attr;
-
-	attr.mq_flags = 0;
-	attr.mq_maxmsg = 10;
-	attr.mq_msgsize = sizeof(struct fd_info)+1;
-	attr.mq_curmsgs = 0;
-
-	// create the message queue explicitly
-	mq = mq_open(QUEUE_NAME, O_CREAT | O_RDWR, 0666, &attr);
-	printf("the msg queue desc is %d\n", (int)mq);
-	if (mq == (mqd_t)-1) {
-        rte_exit(EXIT_FAILURE, "Fail to initialize the MsgQueue");
-    }
-
-	int ret = mq_send(mq, (const char*)fdinfo, input_size, 0);
-
-	if (ret == -1){
-		perror("mq_send");
-		fprintf(stderr, "Error: %s\n", strerror(errno));
-		rte_exit(EXIT_FAILURE, "Fail to pass the data to the ml moden\n");
-	} else {
-		printf("%d bytes were sent\n", ret);
-	}
-
-	return 0;
-}
-
 
 static void
 timer1_cb(struct rte_timer *tim, void *arg)
@@ -104,19 +41,12 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 
 	memset(fdinfo.arr_timestamp, 0, sizeof(fdinfo.arr_timestamp));
 
-	size_t input_size = sizeof(fdinfo);
-
-	// mqd_t send_mqd = create_send_msg_queue();
-
 	const int socket_id = rte_socket_id();
 
 	unsigned lcore_id = rte_lcore_id();
 	printf("Core %u doing RX dequeue.\n", lcore_id);
 
 	uint64_t pkt_cnt = 0;
-
-	// Install signal handler for SIGINT (keyboard interrupt)
-    signal(SIGINT, keyInteruptHandler);
 
 	while (1){
 		struct rte_mbuf *bufs[BURST_SIZE];
@@ -171,13 +101,26 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 						fdinfo.next_avail = (fdinfo.next_avail + 1) % 10;
 
 						// if (unlikely(pkt_cnt == HEARTBEAT_N)) {
-						if (pkt_cnt == HEARTBEAT_N) {	
-							send_to_ml_model(&fdinfo, 100, input_size);
-							// rte_timer_reset(tim, fdinfo.ea - receipt_time, SINGLE, lcore_id, timer1_cb, (void *)(fdinfo.ea - receipt_time));
+						if (pkt_cnt == HEARTBEAT_N) {
+							for (int i = 0; i < ARR_SIZE; i++){
+								printf("%lu: %lu | ", fdinfo.arr_timestamp[i].heartbeat_id, fdinfo.arr_timestamp[i].hb_timestamp);
+							}
+							int i;
+							uint64_t moving_sum = 0;
+							struct hb_timestamp hb;
+							for (i = 0; i < HEARTBEAT_N; i++){
+								hb = fdinfo.arr_timestamp[i];
+								moving_sum += (hb.hb_timestamp - hb.heartbeat_id * hz);
+								// printf("%d: %lu, moving sum: %lu\n", hb.heartbeat_id, (hb.hb_timestamp - hb.heartbeat_id * fdinfo.delta_i * hz / ), moving_sum);
+								printf("%lu: %lu, moving sum: %lu\n", hb.heartbeat_id, (hb.hb_timestamp - hb.heartbeat_id * hz), moving_sum);
+							}
+							fdinfo.ea = moving_sum / HEARTBEAT_N + (HEARTBEAT_N+1) * hz;
+							printf("putting the first estimate %lu\n", fdinfo.ea);
+							rte_timer_reset(tim, fdinfo.ea - receipt_time, SINGLE, lcore_id, timer1_cb, (void *)(fdinfo.ea - receipt_time));
 						} else if (pkt_cnt > HEARTBEAT_N){
 							// calculate the new estimeated arrival time 
 							fdinfo.ea = fdinfo.ea + ((receipt_time - (fdinfo.evicted_time)) / HEARTBEAT_N);
-							printf("FD: %lu th HB arriving, at time %lu, esti: %lu, evicted time: %lu\n", pkt_cnt, receipt_time, fdinfo.ea, fdinfo.evicted_time);
+							printf("FD: %lu th HB arriving, at time %lu, esti: %lu\n", pkt_cnt, receipt_time, fdinfo.ea);
 
 							// update the next_evicted variable
 							fdinfo.next_evicted = (fdinfo.next_evicted + 1) % 10;
@@ -195,7 +138,7 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 				}
 			}
 
-			// mq_close(send_mqd);
+
 			rte_pktmbuf_free(bufs[i]);
 		}
 

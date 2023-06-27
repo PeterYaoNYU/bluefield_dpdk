@@ -19,7 +19,7 @@ lcore_mainloop_send_heartbeat(struct lcore_params *p)
     struct rte_udp_hdr *udp_hdr;
 
     //init mac
-    struct rte_ether_addr s_addr = {{0x08, 0xc0, 0xeb, 0xd1, 0xfc, 0x52}};
+    struct rte_ether_addr s_addr = {{0x08, 0xc0, 0xeb, 0xd1, 0xfc, 0x5e}};
     struct rte_ether_addr d_addr = {{0xb4, 0x05, 0x5d, 0xf6, 0x1a, 0xe3}};
 
     //init IP header
