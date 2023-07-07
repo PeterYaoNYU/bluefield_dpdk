@@ -22,7 +22,7 @@ int create_send_msg_queue()
 	mqd_t mq;
 
 	attr.mq_flags = 0;
-	attr.mq_maxmsg = 10;
+	attr.mq_maxmsg =10;
 	attr.mq_msgsize = sizeof(uint64_t) * ARR_SIZE;
 	attr.mq_curmsgs = 0;
 
@@ -40,6 +40,13 @@ int create_send_msg_queue()
 int 
 send_to_ml_model(uint64_t* ts, mqd_t mq_desc, size_t input_size)
 {
+	struct mq_attr attr;
+	mq_getattr(mq_desc, &attr);
+
+	printf("mq maxmsg is %ld\n", attr.mq_maxmsg);
+	printf("mq msgsize is %ld\n", attr.mq_msgsize);
+	printf("mq curmsg is %ld\n", attr.mq_curmsgs);
+
 	printf("sending to the descriptor: %d\n", (int)mq_desc);
 	int ret = mq_send(mq_desc, (const char*)ts, input_size, 0);
 
@@ -150,7 +157,7 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 						fdinfo.arr_timestamp[fdinfo.next_avail] = receipt_time;
 						
 						// increment the next_avail variable 
-						fdinfo.next_avail = (fdinfo.next_avail + 1) % 10;
+						fdinfo.next_avail = (fdinfo.next_avail + 1) % 100;
 
 						// if (unlikely(pkt_cnt == HEARTBEAT_N)) {
 						if (pkt_cnt == HEARTBEAT_N) {
@@ -178,7 +185,7 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 							printf("FD: %lu th HB arriving, at time %lu, esti: %lu\n", pkt_cnt, receipt_time, fdinfo.ea);
 
 							// update the next_evicted variable
-							fdinfo.next_evicted = (fdinfo.next_evicted + 1) % 10;
+							fdinfo.next_evicted = (fdinfo.next_evicted + 1) % 100;
 							
 							// rewire the timer to the next estimation of the arrival time
 							rte_timer_reset(tim, fdinfo.ea - receipt_time, SINGLE, lcore_id, timer1_cb, (void *)(fdinfo.ea - receipt_time));

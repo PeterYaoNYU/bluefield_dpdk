@@ -2,11 +2,11 @@ import posix_ipc
 import ctypes
 import struct
 
-ARR_SIZE = 10
+ARR_SIZE = 100
 
 # Message queue parameters
 mq_name = '/ml_data'
-queue_size = 10
+queue_size = 100
 message_size = ctypes.sizeof(ctypes.c_uint64) * ARR_SIZE
 
 # create a new posix message queue
@@ -38,6 +38,8 @@ received_array = struct.unpack(f'{ARR_SIZE}Q', message)
 for element in received_array:
     print(element, type(element))
 # Close the message queue
+
+print(received_array)
 mq.close()
 # Unlink (remove) the message queue
 posix_ipc.unlink_message_queue(mq_name)
