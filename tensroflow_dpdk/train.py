@@ -40,7 +40,7 @@ def create_dataset(dataset, look_back=1):
         dataY.append(dataset[i + look_back, 0])
     return np.array(dataX), np.array(dataY)
 
-def inference(param_queue):
+def inference(param_queue, infer_mq):
     # this is the message queue for sending control messages
     # eg: I am ready to do inference, send me the task
     # or others that I cannot think of right now
@@ -76,6 +76,7 @@ def inference(param_queue):
         model_params = param_queue.get(block = False)
         if (model_params):
             infer_model.set_weights(model_params)
+        
         
     # get the lookback information from DPDK and do inference
     # then send the result back to DPDK
@@ -155,15 +156,24 @@ def train(param_queue):
     
     # do the clean up of the resources that we have opened
     mq.close()
+    param_queue.close()
     # Unlink (remove) the message queue
     posix_ipc.unlink_message_queue(mq_name)
     
 if __name__ == "__main__":
+    look_back = 50
     # create a queue that is used to transmit model parameters  
     param_queue = multiprocessing.Queue()
     
+    # create the inference queue that is used for the dpdk to transmit data for you to infer
+    infer_mq_name = "/infer_data"
+    queue_size = look_back
+    message_size = look_back * ctypes.sizeof(ctypes.c_uint64)
+    
+    infer_mq = posix_ipc.MessageQueue(infer_mq_name, flags = posix_ipc.O_CREAT, mode = 0o666, max_messages = queue_size, max_message_size = message_size)
+    
     # Create a child process and pass the queue as an argument
-    child = multiprocessing.Process(target=inference, args=(param_queue,))
+    child = multiprocessing.Process(target=inference, args=(param_queue,infer_mq,))
     
     child.start()
     train(param_queue)
