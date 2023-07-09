@@ -41,6 +41,13 @@ def create_dataset(dataset, look_back=1):
     return np.array(dataX), np.array(dataY)
 
 def inference(param_queue):
+    # this is the message queue for sending control messages
+    # eg: I am ready to do inference, send me the task
+    # or others that I cannot think of right now
+    control_mq_name = "/ctrl_msg"
+    queue_size = 10
+    message_size = ctypes.sizeof(ctypes.c_int) * queue_size
+    
     look_back = 50
     
     # retrieve the parameters of the model from the message queue
@@ -60,8 +67,16 @@ def inference(param_queue):
     
     # tell the DPDK process that I am ready for doing inference...
     # TO-DO
+    ctrl_mq = posix_ipc.MessageQueue(control_mq_name, flags = posix_ipc.O_CREAT, mode = 0o666, max_messages = queue_size, max_message_size = message_size)
+    # send 1 to DPDK to indicate that I am ready to do inference
+    ctrl_mq.send(1)
     
-    # while(True):
+    while(True):
+        model_params = None
+        model_params = param_queue.get(block = False)
+        if (model_params):
+            infer_model.set_weights(model_params)
+        
     # get the lookback information from DPDK and do inference
     # then send the result back to DPDK
     
@@ -154,4 +169,3 @@ if __name__ == "__main__":
     train(param_queue)
     
     child.join()
-
