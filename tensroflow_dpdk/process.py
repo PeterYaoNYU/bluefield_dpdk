@@ -2,12 +2,14 @@ import posix_ipc
 import ctypes
 import struct
 
-ARR_SIZE = 100
+ARR_SIZE = 200
 
 # Message queue parameters
-mq_name = '/ml_data'
-queue_size = 100
+mq_name = '/ml_train'
+queue_size = 200
 message_size = ctypes.sizeof(ctypes.c_uint64) * ARR_SIZE
+
+print("message size: ", message_size)
 
 # create a new posix message queue
 mq = posix_ipc.MessageQueue(mq_name, flags = posix_ipc.O_CREAT, mode = 0o666, max_messages = queue_size, max_message_size = message_size)
@@ -23,6 +25,7 @@ message, _ = mq.receive()
 
 # Calculate the expected size of the received array
 expected_size = ARR_SIZE * struct.calcsize('Q')
+print("expected size: ", expected_size)
 
 # Ensure that the received message has the expected size
 if len(message) != expected_size:

@@ -45,7 +45,7 @@
 #define BURST_SIZE_TX 1
 
 // how many past packets you want to keep track of
-#define HEARTBEAT_N 100
+#define HEARTBEAT_N 200
 
 // uncomment the following two lines based on which node this code is running on
 #define NODE_1_IP "10.10.1.1"
