@@ -59,19 +59,60 @@ def main():
     
     # Interpret the received message as an array of uint64_t
     received_array = struct.unpack(f'{ARR_SIZE}Q', message)
+
     
-    print(received_array)
+    dataset = np.array(received_array)
+    dataset = dataset * 0.00000001
+    print(dataset)
+    
+    start = dataset[0]
+    end = dataset[-1]
+    interval = end - start
+    
+    dataset = dataset - start
+    
+    scaler = MinMaxScaler(feature_range=(0, 1))
+    dataset = dataset.reshape(-1,1)
+    dataset = scaler.fit_transform(dataset)
+    
+    trainX, trainY = create_dataset(dataset, look_back=look_back)
+    
+    trainX = np.reshape(trainX, (trainX.shape[0], 1, trainX.shape[1]))
+    
+    print("****************")
+    print(dataset)
+ 
+    # create and fit the LSTM network
+    model = Sequential()
+    model.add(LSTM(4, input_shape=(1, look_back)))
+    model.add(Dense(1))
+    model.compile(loss=custom_loss, optimizer='adam', metrics=['accuracy'])
+    model.fit(trainX, trainY, epochs=10, batch_size=1, verbose=2)
+    
+    # make predictions
+    trainPredict = model.predict(trainX)
+    
+    # invert predictions
+    trainPredict = scaler.inverse_transform(trainPredict)
+    trainY = scaler.inverse_transform([trainY])
+    
+    # calculate root mean squared error
+    trainScore = math.sqrt(mean_squared_error(trainY[0], trainPredict[:,0]))
+    print('Train Score: %.2f RMSE' % (trainScore))
+    
+    # because python does not support parallel execution on multicores for threads
+    # we have to resort to multi processing
+    # one process to keep training, and anther process to do the inference
+    # and report back to dpdk
+    
+    
+    
+    # do the clean up of the resources that we have opened
     mq.close()
     # Unlink (remove) the message queue
     posix_ipc.unlink_message_queue(mq_name)
     
     
-    # create and fit the LSTM network
-    # model = Sequential()
-    # model.add(LSTM(4, input_shape=(1, look_back)))
-    # model.add(Dense(1))
-    # model.compile(loss=custom_loss, optimizer='adam', metrics=['accuracy'])
-    # model.fit(trainX, trainY, epochs=10, batch_size=1, verbose=2)
     
 if __name__ == "__main__":
     main()
