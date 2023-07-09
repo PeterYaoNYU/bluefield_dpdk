@@ -17,6 +17,8 @@ import keras.backend as K
 import posix_ipc
 import ctypes
 import struct
+# import pickle
+import multiprocessing
 
 def custom_loss(y_true, y_pred):
     # Calculate the squared error between true and predicted values
@@ -38,7 +40,32 @@ def create_dataset(dataset, look_back=1):
         dataY.append(dataset[i + look_back, 0])
     return np.array(dataX), np.array(dataY)
 
-def main():
+def inference(param_queue):
+    look_back = 50
+    
+    # retrieve the parameters of the model from the message queue
+    # the first time the child proces starts, have to sync to wait for the params to be available
+    model_params = param_queue.get(block = True)
+    
+    # create a LSTM model with the same structure
+    infer_model = Sequential()
+    infer_model.add(LSTM(4, input_shape=(1, look_back)))
+    infer_model.add(Dense(1))
+    
+    # apply the weights trained   
+    infer_model.set_weights(model_params)
+    print("!!!!!!!!!!!!!!")
+    print("inference proc ready!!!")
+    print("!!!!!!!!!!!!!!")
+    
+    # tell the DPDK process that I am ready for doing inference...
+    # TO-DO
+    
+    # while(True):
+    # get the lookback information from DPDK and do inference
+    # then send the result back to DPDK
+    
+def train(param_queue):
     look_back = 50
     
     ARR_SIZE = 200
@@ -103,17 +130,28 @@ def main():
     # because python does not support parallel execution on multicores for threads
     # we have to resort to multi processing
     # one process to keep training, and anther process to do the inference
-    # and report back to dpdk
+    # and report back to DPDK
     
+    # here I used the multiprocessing package for forking and msg queue among python processes
     
+    # Get the model parameters
+    model_params = model.get_weights()    
+    param_queue.put(model_params)
     
     # do the clean up of the resources that we have opened
     mq.close()
     # Unlink (remove) the message queue
     posix_ipc.unlink_message_queue(mq_name)
     
-    
-    
 if __name__ == "__main__":
-    main()
+    # create a queue that is used to transmit model parameters  
+    param_queue = multiprocessing.Queue()
+    
+    # Create a child process and pass the queue as an argument
+    child = multiprocessing.Process(target=inference, args=(param_queue,))
+    
+    child.start()
+    train(param_queue)
+    
+    child.join()
 
