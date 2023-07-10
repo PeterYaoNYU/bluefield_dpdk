@@ -19,6 +19,7 @@ import ctypes
 import struct
 # import pickle
 import multiprocessing
+import queue
 
 def custom_loss(y_true, y_pred):
     # Calculate the squared error between true and predicted values
@@ -50,6 +51,9 @@ def inference(param_queue, infer_mq):
     
     look_back = 50
     
+    print("!!!!!!!!!!!!!!")
+    print("waiting for the parameter of the model to come!!!")
+    print("!!!!!!!!!!!!!!")
     # retrieve the parameters of the model from the message queue
     # the first time the child proces starts, have to sync to wait for the params to be available
     model_params = param_queue.get(block = True)
@@ -69,13 +73,17 @@ def inference(param_queue, infer_mq):
     # TO-DO
     ctrl_mq = posix_ipc.MessageQueue(control_mq_name, flags = posix_ipc.O_CREAT, mode = 0o666, max_messages = queue_size, max_message_size = message_size)
     # send 1 to DPDK to indicate that I am ready to do inference
-    ctrl_mq.send(1)
+    ctrl_mq.send(bytes(str(1), encoding="utf-8"))
     
     while(True):
         model_params = None
-        model_params = param_queue.get(block = False)
-        if (model_params):
-            infer_model.set_weights(model_params)
+        try:
+            model_params = param_queue.get(block = False)
+            if (model_params):
+                infer_model.set_weights(model_params)
+        except queue.Empty:
+            print("Queue is empty. No model parameters available.")
+        # here i used a bare except clause because I cannot find the Empty exception in this package
         
         
     # get the lookback information from DPDK and do inference
@@ -94,65 +102,68 @@ def train(param_queue):
     print("message size: ", message_size)
     
     # create a new posix message queue
+    # this queue is for DPDK to transmit training data to the model
     mq = posix_ipc.MessageQueue(mq_name, flags = posix_ipc.O_CREAT, mode = 0o666, max_messages = queue_size, max_message_size = message_size)
     # Print the message queue's descriptor
     print("Message queue created with descriptor:", mq.mqd)
-    # Receive message from the queue
-    message, _ = mq.receive()
     
-    # Interpret the received message as an array of uint64_t
-    received_array = struct.unpack(f'{ARR_SIZE}Q', message)
+    while(True):
+        # Receive message from the queue
+        message, _ = mq.receive()
+        
+        # Interpret the received message as an array of uint64_t
+        received_array = struct.unpack(f'{ARR_SIZE}Q', message)
 
+        
+        dataset = np.array(received_array)
+        dataset = dataset * 0.00000001
+        print(dataset)
+        
+        start = dataset[0]
+        end = dataset[-1]
+        interval = end - start
+        
+        dataset = dataset - start
+        
+        scaler = MinMaxScaler(feature_range=(0, 1))
+        dataset = dataset.reshape(-1,1)
+        dataset = scaler.fit_transform(dataset)
+        
+        trainX, trainY = create_dataset(dataset, look_back=look_back)
+        
+        trainX = np.reshape(trainX, (trainX.shape[0], 1, trainX.shape[1]))
+        
+        print("****************")
+        print(dataset)
     
-    dataset = np.array(received_array)
-    dataset = dataset * 0.00000001
-    print(dataset)
-    
-    start = dataset[0]
-    end = dataset[-1]
-    interval = end - start
-    
-    dataset = dataset - start
-    
-    scaler = MinMaxScaler(feature_range=(0, 1))
-    dataset = dataset.reshape(-1,1)
-    dataset = scaler.fit_transform(dataset)
-    
-    trainX, trainY = create_dataset(dataset, look_back=look_back)
-    
-    trainX = np.reshape(trainX, (trainX.shape[0], 1, trainX.shape[1]))
-    
-    print("****************")
-    print(dataset)
- 
-    # create and fit the LSTM network
-    model = Sequential()
-    model.add(LSTM(4, input_shape=(1, look_back)))
-    model.add(Dense(1))
-    model.compile(loss=custom_loss, optimizer='adam', metrics=['accuracy'])
-    model.fit(trainX, trainY, epochs=10, batch_size=1, verbose=2)
-    
-    # make predictions
-    trainPredict = model.predict(trainX)
-    
-    # invert predictions
-    trainPredict = scaler.inverse_transform(trainPredict)
-    trainY = scaler.inverse_transform([trainY])
-    
-    # calculate root mean squared error
-    trainScore = math.sqrt(mean_squared_error(trainY[0], trainPredict[:,0]))
-    print('Train Score: %.2f RMSE' % (trainScore))
-    
-    # because python does not support parallel execution on multicores for threads
-    # we have to resort to multi processing
-    # one process to keep training, and anther process to do the inference
-    # and report back to DPDK
-    
-    # here I used the multiprocessing package for forking and msg queue among python processes
-    
-    # Get the model parameters
-    model_params = model.get_weights()    
-    param_queue.put(model_params)
+        # create and fit the LSTM network
+        model = Sequential()
+        model.add(LSTM(4, input_shape=(1, look_back)))
+        model.add(Dense(1))
+        model.compile(loss=custom_loss, optimizer='adam', metrics=['accuracy'])
+        model.fit(trainX, trainY, epochs=10, batch_size=1, verbose=2)
+        
+        # make predictions
+        trainPredict = model.predict(trainX)
+        
+        # invert predictions
+        trainPredict = scaler.inverse_transform(trainPredict)
+        trainY = scaler.inverse_transform([trainY])
+        
+        # calculate root mean squared error
+        trainScore = math.sqrt(mean_squared_error(trainY[0], trainPredict[:,0]))
+        print('Train Score: %.2f RMSE' % (trainScore))
+        
+        # because python does not support parallel execution on multicores for threads
+        # we have to resort to multi processing
+        # one process to keep training, and anther process to do the inference
+        # and report back to DPDK
+        
+        # here I used the multiprocessing package for forking and msg queue among python processes
+        
+        # Get the model parameters
+        model_params = model.get_weights()    
+        param_queue.put(model_params)
     
     # do the clean up of the resources that we have opened
     mq.close()
