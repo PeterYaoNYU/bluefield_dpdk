@@ -61,6 +61,19 @@ send_to_ml_model(uint64_t* ts, mqd_t mq_desc, size_t input_size)
 	return 0;
 }
 
+int send_to_infer(uint64_t* ts, mqd_t mq_desc, int next_idx){
+	uint64_t send_buffer[LOOK_BACK];
+	int i;
+	int offset = LOOK_BACK - 1;
+
+	for (i = 0; i < LOOK_BACK; i++){
+		int array_index = (next_idx - i - 1 - offset + ARR_SIZE) % ARR_SIZE;
+		printf("cloning the %d th element to infer send, with array idx %d\n", i, array_index);
+		send_buffer[i] = ts[array_index];
+	}
+	mq_send(mq_desc, (const char*)send_buffer, sizeof(send_buffer), 0);
+}
+
 
 static void
 timer1_cb(struct rte_timer *tim, void *arg)
@@ -84,6 +97,15 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 	// now real_interval is the real number of clock tick between 2 emissions
 	hz = hz * DELTA_I / 1000;
 	printf("the real gap of clock ticks is %lu\n", hz);
+
+	// this variable is an indication of whether the inference model is ready
+	// if it is not ready, the value is 0
+	// if ready, the value is set to 1
+	int ready_to_infer = 0;
+	// this is the buffer that holds ready_to_infer control message if it is ever received
+	char ready_to_infer_buffer[sizeof(int)];
+	// set the buffer to 0
+	memset(ready_to_infer_buffer, 0, sizeof(int));
 
 	// this is the number of ticks per second  
 
@@ -109,8 +131,21 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 
 	uint64_t pkt_cnt = 0;
 
-    send_mq = mq_open(QUEUE_NAME, O_RDWR);
+	// TO-DO:
+	// later, the send_mq should be changed to a local scope variable as well
 
+    send_mq = mq_open(QUEUE_NAME, O_RDWR);
+	// the control message queue is opened in a non-blocking manner
+ 	mqd_t control_mq = mq_open(CONTROL_MQ_NAME, O_RDWR|O_NONBLOCK);
+	// the infer_data_mq is from the DPDK to the Inference model, transmitting timestamps to make an inference
+	mqd_t infer_data_mq = mq_open(INFER_MQ_NAME, O_RDWR);
+
+	if ((send_mq == (mqd_t)-1) || (control_mq == (mqd_t)-1) || (infer_data_mq == (mqd_t)-1)){
+		perror("mq_open failure");
+	} else {
+		printf("Message queue opened successfully!\n");
+	}
+	
 	while (1){
 		struct rte_mbuf *bufs[BURST_SIZE];
 		uint16_t nb_rx = rte_eth_rx_burst(0, p->rx_queue_id, bufs, BURST_SIZE);
@@ -159,41 +194,25 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 						// increment the next_avail variable 
 						fdinfo.next_avail = (fdinfo.next_avail + 1) % 200;
 
-						// if (unlikely(pkt_cnt == HEARTBEAT_N)) {
-						if (pkt_cnt == HEARTBEAT_N) {
-							for (int i = 0; i < ARR_SIZE; i++){
-								printf("%d: %lu | ", i, fdinfo.arr_timestamp[i]);
-							}
-							printf("\n");
-							int i;
-							uint64_t moving_sum = 0;
-							uint64_t hb_timestamp;
-							for (i = 0; i < HEARTBEAT_N; i++){
-								hb_timestamp = fdinfo.arr_timestamp[i];
-								moving_sum += (hb_timestamp - i * hz);
-								printf("%d: %lu, moving sum: %lu\n", i, (hb_timestamp - i * hz), moving_sum);
-							}
-							fdinfo.ea = moving_sum / HEARTBEAT_N + (HEARTBEAT_N+1) * hz;
-							printf("putting the first estimate %lu\n", fdinfo.ea);
-
+						if (pkt_cnt % HEARTBEAT_N == 0){
+							// send the data to the model for training
 							send_to_ml_model(fdinfo.arr_timestamp, send_mq, sizeof(fdinfo.arr_timestamp));
-
-							rte_timer_reset(tim, fdinfo.ea - receipt_time, SINGLE, lcore_id, timer1_cb, (void *)(fdinfo.ea - receipt_time));
-						} else if (pkt_cnt > HEARTBEAT_N){
-							// calculate the new estimeated arrival time 
-							fdinfo.ea = fdinfo.ea + ((receipt_time - (fdinfo.evicted_time)) / HEARTBEAT_N);
-							printf("FD: %lu th HB arriving, at time %lu, esti: %lu\n", pkt_cnt, receipt_time, fdinfo.ea);
-
-							// update the next_evicted variable
-							fdinfo.next_evicted = (fdinfo.next_evicted + 1) % 200;
-							
-							// rewire the timer to the next estimation of the arrival time
-							rte_timer_reset(tim, fdinfo.ea - receipt_time, SINGLE, lcore_id, timer1_cb, (void *)(fdinfo.ea - receipt_time));
-						} else {
-							printf("too early to put an estimate, but the arrival time is %lu\n", receipt_time);
-							for (int i = 0; i < ARR_SIZE; i++){
-								printf("%d: %lu | ", i, fdinfo.arr_timestamp[i]);
+						}
+						if (!ready_to_infer){
+							// try to see if the model is ready for inference tasks
+							ssize_t bytes_received = mq_receive(control_mq, ready_to_infer_buffer, sizeof(int), NULL);
+							if (bytes_received != -1){
+								int received_data = *((int*) ready_to_infer_buffer);
+								if (received_data == 1){
+									ready_to_infer = 1;
+									// send the last look_back amount of data to the model to do inference
+									send_to_infer(fdinfo.arr_timestamp, infer_data_mq, fdinfo.next_avail);
+								}
 							}
+						} else {
+							// the inference model has been ready for a while
+							// send the last look_back amount of data to the model to do inference
+							send_to_infer(fdinfo.arr_timestamp, infer_data_mq, fdinfo.next_avail);
 						}
 					}
 				}

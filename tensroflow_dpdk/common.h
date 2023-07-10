@@ -57,6 +57,9 @@
 // the heartbeat interval defined here, in millisecond. 
 #define DELTA_I 100
 
+// the look_back amount of the machine learning model
+#define LOOK_BACK 50
+
 struct lcore_params {
     uint16_t rx_queue_id;
     uint16_t tx_queue_id;

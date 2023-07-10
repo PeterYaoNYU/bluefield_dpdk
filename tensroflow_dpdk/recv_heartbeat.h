@@ -5,6 +5,8 @@
 #include <mqueue.h>
 #include <signal.h>
 
-#define QUEUE_NAME "/ml_train"
+#define QUEUE_NAME      "/ml_train"
+#define CONTROL_MQ_NAME "/ctrl_msg"
+#define INFER_MQ_NAME   "/infer_data"
 
 int lcore_recv_heartbeat_pkt(struct recv_arg *);
