@@ -48,7 +48,7 @@ def inference(param_queue, infer_mq):
     control_mq_name = "/ctrl_msg"
     queue_size = 10
     message_size = ctypes.sizeof(ctypes.c_int) * queue_size
-    
+    ctrl_mq = posix_ipc.MessageQueue(control_mq_name, flags = posix_ipc.O_CREAT, mode = 0o666, max_messages = queue_size, max_message_size = message_size)
     look_back = 50
     
     print("!!!!!!!!!!!!!!")
@@ -71,9 +71,9 @@ def inference(param_queue, infer_mq):
     
     # tell the DPDK process that I am ready for doing inference...
     # TO-DO
-    ctrl_mq = posix_ipc.MessageQueue(control_mq_name, flags = posix_ipc.O_CREAT, mode = 0o666, max_messages = queue_size, max_message_size = message_size)
     # send 1 to DPDK to indicate that I am ready to do inference
-    ctrl_mq.send(bytes(str(1), encoding="utf-8"))
+    number = 1
+    ctrl_mq.send(number.to_bytes(4, byteorder='little'))
     
     while(True):
         model_params = None
@@ -82,9 +82,16 @@ def inference(param_queue, infer_mq):
             if (model_params):
                 infer_model.set_weights(model_params)
         except queue.Empty:
-            print("Queue is empty. No model parameters available.")
-        # here i used a bare except clause because I cannot find the Empty exception in this package
+            pass
+            # print("Queue is empty. No model parameters available.")
+        # Receive message from the queue
+        message, _ = infer_mq.receive()
         
+        # Interpret the received message as an array of uint64_t
+        received_array = struct.unpack(f'{look_back}Q', message)
+        print("&&&&&&&&&&&&&&&&&&&&&&&&&&&")
+        print(received_array)
+        print("&&&&&&&&&&&&&&&&&&&&&&&&&&&")
         
     # get the lookback information from DPDK and do inference
     # then send the result back to DPDK
@@ -117,7 +124,7 @@ def train(param_queue):
         
         dataset = np.array(received_array)
         dataset = dataset * 0.00000001
-        print(dataset)
+        # print(dataset)
         
         start = dataset[0]
         end = dataset[-1]

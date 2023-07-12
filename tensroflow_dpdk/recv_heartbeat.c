@@ -136,9 +136,17 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 
     send_mq = mq_open(QUEUE_NAME, O_RDWR);
 	// the control message queue is opened in a non-blocking manner
+
+	// !!!!!!!!!!!!!TODO:
+	// the control_mq is the problem here, the dpdk program cannot get the signal that it can now send inference data to the model for prediction
  	mqd_t control_mq = mq_open(CONTROL_MQ_NAME, O_RDWR|O_NONBLOCK);
 	// the infer_data_mq is from the DPDK to the Inference model, transmitting timestamps to make an inference
 	mqd_t infer_data_mq = mq_open(INFER_MQ_NAME, O_RDWR);
+
+	struct mq_attr control_mq_attr;
+	mq_getattr(control_mq, &control_mq_attr);
+	printf("the max message size in bytes of the control mq is %ld\n", control_mq_attr.mq_msgsize);
+
 
 	if ((send_mq == (mqd_t)-1) || (control_mq == (mqd_t)-1) || (infer_data_mq == (mqd_t)-1)){
 		perror("mq_open failure");
@@ -200,18 +208,29 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 						}
 						if (!ready_to_infer){
 							// try to see if the model is ready for inference tasks
-							ssize_t bytes_received = mq_receive(control_mq, ready_to_infer_buffer, sizeof(int), NULL);
+							ssize_t bytes_received = mq_receive(control_mq, ready_to_infer_buffer, control_mq_attr.mq_msgsize , NULL);
 							if (bytes_received != -1){
 								int received_data = *((int*) ready_to_infer_buffer);
-								if (received_data == 1){
-									ready_to_infer = 1;
-									// send the last look_back amount of data to the model to do inference
-									send_to_infer(fdinfo.arr_timestamp, infer_data_mq, fdinfo.next_avail);
-								}
+								// if (received_data == 1){
+								// 	ready_to_infer = 1;
+								// 	// send the last look_back amount of data to the model to do inference
+								// 	send_to_infer(fdinfo.arr_timestamp, infer_data_mq, fdinfo.next_avail);
+								// }
+								printf("!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
+								printf("ready to send inference data\n");
+								printf("!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
+								send_to_infer(fdinfo.arr_timestamp, infer_data_mq, fdinfo.next_avail);
+							} else if (bytes_received == -1){
+								perror("ctrl_message");
+							} else {
+								printf("not receiving the ctrl message yet\n");
 							}
-						} else {
+						} else if (ready_to_infer){
 							// the inference model has been ready for a while
 							// send the last look_back amount of data to the model to do inference
+							printf("!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
+							printf("ready to infer\n");
+							printf("!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
 							send_to_infer(fdinfo.arr_timestamp, infer_data_mq, fdinfo.next_avail);
 						}
 					}
