@@ -68,8 +68,8 @@ int send_to_infer(uint64_t* ts, mqd_t mq_desc, int next_idx){
 
 	for (i = LOOK_BACK; i > 0; i--){
 		int array_index = (next_idx - i - 1 - offset + ARR_SIZE) % ARR_SIZE;
-		printf("cloning the %d th element to infer send, with array idx %d\n", i, array_index);
-		send_buffer[i] = ts[array_index];
+		// printf("cloning the %d th element to infer send, with array idx %d\n", i, array_index);
+		send_buffer[LOOK_BACK-i] = ts[array_index];
 	}
 	mq_send(mq_desc, (const char*)send_buffer, sizeof(send_buffer), 0);
 }
@@ -206,6 +206,7 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 							// send the data to the model for training
 							send_to_ml_model(fdinfo.arr_timestamp, send_mq, sizeof(fdinfo.arr_timestamp));
 						}
+						printf("ready to infer? %d\n", ready_to_infer);
 						if (!ready_to_infer){
 							// try to see if the model is ready for inference tasks
 							ssize_t bytes_received = mq_receive(control_mq, ready_to_infer_buffer, control_mq_attr.mq_msgsize , NULL);
@@ -219,6 +220,7 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 								printf("!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
 								printf("ready to send inference data\n");
 								printf("!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
+								ready_to_infer = 1;
 								send_to_infer(fdinfo.arr_timestamp, infer_data_mq, fdinfo.next_avail);
 							} else if (bytes_received == -1){
 								perror("ctrl_message");

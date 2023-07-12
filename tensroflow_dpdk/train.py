@@ -109,11 +109,11 @@ def inference(param_queue, infer_mq):
         dataset = scaler.fit_transform(dataset)
         
         print(dataset)
-        print("before reshaping: ", dataset.shape)  
-        print(dataset.shape)
+        # print("before reshaping: ", dataset.shape)  
+        # print(dataset.shape)
         
         dataset = np.reshape(dataset, (dataset.shape[1], 1, dataset.shape[0]))
-        print("after reshaping: ", dataset.shape)
+        # print("after reshaping: ", dataset.shape)
     
         # make predictions
         next_arrival = infer_model.predict(dataset)
@@ -121,9 +121,10 @@ def inference(param_queue, infer_mq):
         
         # invert predictions
         next_arrival = scaler.inverse_transform(next_arrival)
-        next_arrival = next_arrival * 1 / 0.00000001
+        # next_arrival = next_arrival + start
+        # next_arrival = next_arrival * 1 / 0.00000001
         
-        print("next arrival (after scaling back): ", next_arrival)
+        print("next arrival (after scaling back): ", next_arrival[0][0])
         
         # TODO send the result back to dpdk
         
@@ -154,6 +155,10 @@ def train(param_queue):
         
         # Interpret the received message as an array of uint64_t
         received_array = struct.unpack(f'{ARR_SIZE}Q', message)
+        
+        print("!!!!!!!!!!!!!!!!!!!!!!!")
+        print(received_array)
+        print("!!!!!!!!!!!!!!!!!!!!!!!")
         
         dataset = np.array(received_array)
         dataset = dataset * 0.00000001
