@@ -93,6 +93,40 @@ def inference(param_queue, infer_mq):
         print(received_array)
         print("&&&&&&&&&&&&&&&&&&&&&&&&&&&")
         
+        # now making inference:
+        dataset = np.array(received_array)
+        dataset = dataset * 0.00000001
+        # print(dataset)
+        
+        start = dataset[0]
+        end = dataset[-1]
+        interval = end - start
+        
+        dataset = dataset - start
+        
+        scaler = MinMaxScaler(feature_range=(0, 1))
+        dataset = dataset.reshape(-1,1)
+        dataset = scaler.fit_transform(dataset)
+        
+        print(dataset)
+        print("before reshaping: ", dataset.shape)  
+        print(dataset.shape)
+        
+        dataset = np.reshape(dataset, (dataset.shape[1], 1, dataset.shape[0]))
+        print("after reshaping: ", dataset.shape)
+    
+        # make predictions
+        next_arrival = infer_model.predict(dataset)
+        print("next arrival (before scaling back): ", next_arrival)
+        
+        # invert predictions
+        next_arrival = scaler.inverse_transform(next_arrival)
+        next_arrival = next_arrival * 1 / 0.00000001
+        
+        print("next arrival (after scaling back): ", next_arrival)
+        
+        # TODO send the result back to dpdk
+        
     # get the lookback information from DPDK and do inference
     # then send the result back to DPDK
     
@@ -120,7 +154,6 @@ def train(param_queue):
         
         # Interpret the received message as an array of uint64_t
         received_array = struct.unpack(f'{ARR_SIZE}Q', message)
-
         
         dataset = np.array(received_array)
         dataset = dataset * 0.00000001

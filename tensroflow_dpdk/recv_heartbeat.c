@@ -50,9 +50,9 @@ send_to_ml_model(uint64_t* ts, mqd_t mq_desc, size_t input_size)
 	printf("sending to the descriptor: %d\n", (int)mq_desc);
 	int ret = mq_send(mq_desc, (const char*)ts, input_size, 0);
 
-	for (int i = 0; i < ARR_SIZE; i++){
-		printf("%ld\n",ts[i]);
-	}
+	// for (int i = 0; i < ARR_SIZE; i++){
+	// 	printf("%ld\n",ts[i]);
+	// }
 
 	if (ret == -1){
 		perror("mq_send");
@@ -66,7 +66,7 @@ int send_to_infer(uint64_t* ts, mqd_t mq_desc, int next_idx){
 	int i;
 	int offset = LOOK_BACK - 1;
 
-	for (i = 0; i < LOOK_BACK; i++){
+	for (i = LOOK_BACK; i > 0; i--){
 		int array_index = (next_idx - i - 1 - offset + ARR_SIZE) % ARR_SIZE;
 		printf("cloning the %d th element to infer send, with array idx %d\n", i, array_index);
 		send_buffer[i] = ts[array_index];
