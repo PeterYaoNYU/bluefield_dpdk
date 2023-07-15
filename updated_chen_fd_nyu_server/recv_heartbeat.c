@@ -114,13 +114,13 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 							struct hb_timestamp hb;
 							for (i = 0; i < HEARTBEAT_N; i++){
 								hb = fdinfo.arr_timestamp[i];
-								moving_sum += (hb.hb_timestamp - (hb.heartbeat_id - 1) * hz);
+								moving_sum += (hb.hb_timestamp - hb.heartbeat_id * hz);
 								// printf("%d: %lu, moving sum: %lu\n", hb.heartbeat_id, (hb.hb_timestamp - hb.heartbeat_id * fdinfo.delta_i * hz / ), moving_sum);
 								printf("%lu: %lu, moving sum: %lu\n", hb.heartbeat_id, (hb.hb_timestamp - hb.heartbeat_id * hz), moving_sum);
 							}
 							fdinfo.ea = moving_sum / HEARTBEAT_N + (HEARTBEAT_N+1) * hz;
 							printf("putting the first estimate %lu\n", fdinfo.ea);
-							rte_timer_reset(tim, fdinfo.ea - receipt_time + safety_margin, SINGLE, lcore_id, timer1_cb, (void *)(fdinfo.ea - receipt_time));
+							rte_timer_reset(tim, fdinfo.ea - receipt_time + safety_margin, SINGLE, lcore_id, timer1_cb, (void *)(fdinfo.ea - receipt_time + safety_margin));
 						} else if (pkt_cnt > HEARTBEAT_N){
 							// calculate the new estimeated arrival time 
 							fdinfo.ea = fdinfo.ea + ((receipt_time - (fdinfo.evicted_time)) / HEARTBEAT_N);
@@ -130,7 +130,7 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 							fdinfo.next_evicted = (fdinfo.next_evicted + 1) % 10;
 							
 							// rewire the timer to the next estimation of the arrival time
-							rte_timer_reset(tim, fdinfo.ea - receipt_time + safety_margin, SINGLE, lcore_id, timer1_cb, (void *)(fdinfo.ea - receipt_time));
+							rte_timer_reset(tim, fdinfo.ea - receipt_time + safety_margin, SINGLE, lcore_id, timer1_cb, (void *)(fdinfo.ea - receipt_time + safety_margin));
 						} else {
 							printf("too early to put an estimate, but the arrival time is %lu\n", receipt_time);
 							for (int i = 0; i < ARR_SIZE; i++){
