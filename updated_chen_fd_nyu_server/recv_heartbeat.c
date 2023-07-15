@@ -108,6 +108,7 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 							for (int i = 0; i < ARR_SIZE; i++){
 								printf("%lu: %lu | ", fdinfo.arr_timestamp[i].heartbeat_id, fdinfo.arr_timestamp[i].hb_timestamp);
 							}
+							printf("\n");
 							int i;
 							uint64_t moving_sum = 0;
 							struct hb_timestamp hb;
@@ -135,6 +136,7 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 							for (int i = 0; i < ARR_SIZE; i++){
 								printf("%lu: %lu | ", fdinfo.arr_timestamp[i].heartbeat_id, fdinfo.arr_timestamp[i].hb_timestamp);
 							}
+							printf("\n");
 						}
 
 					}
