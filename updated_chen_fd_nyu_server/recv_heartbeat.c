@@ -49,7 +49,7 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 	unsigned lcore_id = rte_lcore_id();
 	printf("Core %u doing RX dequeue.\n", lcore_id);
 
-	uint64_t pkt_cnt = 0;
+	uint64_t pkt_cnt = -1;
 
 	while (1){
 		struct rte_mbuf *bufs[BURST_SIZE];
