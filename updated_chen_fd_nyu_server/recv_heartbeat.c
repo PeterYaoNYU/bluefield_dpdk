@@ -27,6 +27,8 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 	// the variable safety margin in terms of clock ticks
 	uint64_t safety_margin = hz_per_sec * SAFETY_MARGIN / 1000;
 
+	printf("the safety margin in terms of ticks is %lu\n", safety_margin);
+
 	// this is the number of ticks per second  
 
 	// first, unpack the arguments from recv_arg

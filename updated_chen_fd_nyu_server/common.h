@@ -55,7 +55,7 @@
 #define HB_SRC_PORT 6666
 
 // the heartbeat interval defined here, in millisecond. 
-#define DELTA_I 100
+#define DELTA_I 300
 
 #define SAFETY_MARGIN 100
 
