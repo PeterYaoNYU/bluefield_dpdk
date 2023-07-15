@@ -59,7 +59,7 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 			continue;
 		}
 
-		// printf("received %u packets in this burst\n", nb_rx);
+		printf("received %u packets in this burst\n", nb_rx);
 		uint16_t i;
 		for (i = 0; i < nb_rx; i++){
             struct rte_mbuf *pkt = bufs[i];
