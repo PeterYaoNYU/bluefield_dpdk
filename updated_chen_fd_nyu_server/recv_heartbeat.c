@@ -22,15 +22,16 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 {
 	// need to make a translation between the number of cycles per second and the number of seconds of our EA
 	uint64_t hz_per_sec = rte_get_timer_hz();
-	RTE_LOG(DEBUG, RTE_LOGTYPE_DEFAULT, "the hz is %lu\n", hz_per_sec);
+	RTE_LOG(INFO, SYS_INFO, "the hz is %lu\n", hz_per_sec);
 	// now real_interval is the real number of clock tick between 2 emissions
 	uint64_t hz = hz_per_sec * DELTA_I / 1000;
-	printf("the real gap of clock ticks is %lu\n", hz);
+
+	RTE_LOG(INFO, SYS_INFO, "the real gap of clock ticks is %lu\n", hz);
 
 	// the variable safety margin in terms of clock ticks
 	uint64_t safety_margin = hz_per_sec * SAFETY_MARGIN / 1000;
 
-	printf("the safety margin in terms of ticks is %lu\n", safety_margin);
+	RTE_LOG(INFO, SYS_INFO, "the safety margin in terms of ticks is %lu\n", safety_margin);
 
 	// this is the number of ticks per second  
 
@@ -52,7 +53,7 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 	const int socket_id = rte_socket_id();
 
 	unsigned lcore_id = rte_lcore_id();
-	printf("Core %u doing RX dequeue.\n", lcore_id);
+	RTE_LOG(INFO, SYS_INFO, "Core %u doing RX dequeue.\n", lcore_id);
 
 	uint64_t pkt_cnt = 0;
 
@@ -111,9 +112,10 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 						// if (unlikely(pkt_cnt == HEARTBEAT_N)) {
 						if (pkt_cnt == HEARTBEAT_N) {
 							for (int i = 0; i < ARR_SIZE; i++){
-								printf("%lu: %lu | ", fdinfo.arr_timestamp[i].heartbeat_id, fdinfo.arr_timestamp[i].hb_timestamp);
+								RTE_LOG(DEBUG, DEFAULT_DEBUG, "%lu: %lu | ", fdinfo.arr_timestamp[i].heartbeat_id, fdinfo.arr_timestamp[i].hb_timestamp);
 							}
-							printf("\n");
+							RTE_LOG(DEBUG, DEFAULT_DEBUG, "\n");
+
 							int i;
 							uint64_t moving_sum = 0;
 							struct hb_timestamp hb;
@@ -121,7 +123,7 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 								hb = fdinfo.arr_timestamp[i];
 								moving_sum += (hb.hb_timestamp - hb.heartbeat_id * hz);
 								// printf("%d: %lu, moving sum: %lu\n", hb.heartbeat_id, (hb.hb_timestamp - hb.heartbeat_id * fdinfo.delta_i * hz / ), moving_sum);
-								printf("%lu: %lu, moving sum: %lu\n", hb.heartbeat_id, (hb.hb_timestamp - hb.heartbeat_id * hz), moving_sum);
+								RTE_LOG(DEBUG, DEFAULT_DEBUG, "%lu: %lu, moving sum: %lu\n", hb.heartbeat_id, (hb.hb_timestamp - hb.heartbeat_id * hz), moving_sum);
 							}
 							fdinfo.ea = moving_sum / HEARTBEAT_N + (HEARTBEAT_N+1) * hz;
 							printf("putting the first estimate %lu\n", fdinfo.ea);
@@ -129,7 +131,7 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 						} else if (pkt_cnt > HEARTBEAT_N){
 							// calculate the new estimeated arrival time 
 							fdinfo.ea = fdinfo.ea + ((receipt_time - (fdinfo.evicted_time)) / HEARTBEAT_N);
-							printf("FD: %lu th HB arriving, at time %lu, esti: %lu, evicted: %lu\n", pkt_cnt, receipt_time, fdinfo.ea, fdinfo.evicted_time);
+							RTE_LOG(DEBUG, DEFAULT_DEBUG, "FD: %lu th HB arriving, at time %lu, esti: %lu, evicted: %lu\n", pkt_cnt, receipt_time, fdinfo.ea, fdinfo.evicted_time);
 
 							// update the next_evicted variable
 							fdinfo.next_evicted = (fdinfo.next_evicted + 1) % 200;
@@ -137,21 +139,17 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 							// rewire the timer to the next estimation of the arrival time
 							rte_timer_reset(tim, fdinfo.ea - receipt_time + safety_margin, SINGLE, lcore_id, timer1_cb, (void *)(fdinfo.ea - receipt_time + safety_margin));
 						} else {
-							printf("too early to put an estimate, but the arrival time is %lu\n", receipt_time);
+							RTE_LOG(DEBUG, DEFAULT_DEBUG, "too early to put an estimate, but the arrival time is %lu\n", receipt_time);
 							for (int i = 0; i < ARR_SIZE; i++){
-								printf("%lu: %lu | ", fdinfo.arr_timestamp[i].heartbeat_id, fdinfo.arr_timestamp[i].hb_timestamp);
+								RTE_LOG(DEBUG, DEFAULT_DEBUG, "%lu: %lu | ", fdinfo.arr_timestamp[i].heartbeat_id, fdinfo.arr_timestamp[i].hb_timestamp);
 							}
-							printf("\n");
+							RTE_LOG(DEBUG, DEFAULT_DEBUG, "\n");
 						}
-
 					}
 				}
 			}
-
-
 			rte_pktmbuf_free(bufs[i]);
 		}
-
 	}
 	return 0;
 }

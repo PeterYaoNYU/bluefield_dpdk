@@ -56,8 +56,10 @@ int main(int argc, char *argv[])
 	rte_timer_init(&timer0);
 
     // set the logging level
-    rte_log_set_global_level(RTE_LOG_DEBUG);
-    rte_log_set_level(FD_OUTPUT, RTE_LOG_INFO);
+    rte_log_set_global_level(RTE_LOG_INFO);
+    rte_log_set_level(RTE_LOGTYPE_FD_OUTPUT, RTE_LOG_INFO);
+    rte_log_set_level(RTE_LOGTYPE_DEFAULT_DEBUG, RTE_LOG_DEBUG);
+    rte_log_set_level(RTE_LOGTYPE_SYS_INFO, RTE_LOG_INFO);
 
     // Start tx core
     for (int i = 0; i < NUM_TX_QUEUE; ++i)

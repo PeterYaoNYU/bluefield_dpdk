@@ -33,7 +33,10 @@
 #include "util.h"
 
 // self defined log type
-#define FD_OUTPUT RTE_LOGTYPE_USER1
+#define RTE_LOGTYPE_FD_OUTPUT       RTE_LOGTYPE_USER1
+#define RTE_LOGTYPE_DEFAULT_DEBUG   RTE_LOGTYPE_USER2
+#define RTE_LOGTYPE_SYS_INFO        RTE_LOGTYPE_USER3
+
 
 #define RX_RING_SIZE 1024
 #define TX_RING_SIZE 1024
@@ -59,7 +62,7 @@
 #define HB_SRC_PORT 6666
 
 // the heartbeat interval defined here, in millisecond. 
-#define DELTA_I 300
+#define DELTA_I 100
 
 #define SAFETY_MARGIN 100
 
