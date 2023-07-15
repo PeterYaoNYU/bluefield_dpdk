@@ -52,7 +52,7 @@
 #define BURST_SIZE_TX 1
 
 // how many past packets you want to keep track of
-#define HEARTBEAT_N 10
+#define HEARTBEAT_N 100
 
 // uncomment the following two lines based on which node this code is running on
 #define NODE_1_IP "10.10.1.1"
@@ -64,7 +64,7 @@
 // the heartbeat interval defined here, in millisecond. 
 #define DELTA_I 100
 
-#define SAFETY_MARGIN 600
+#define SAFETY_MARGIN 100
 
 struct lcore_params {
     uint16_t rx_queue_id;
