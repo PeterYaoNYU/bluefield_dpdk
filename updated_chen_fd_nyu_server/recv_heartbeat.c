@@ -112,9 +112,8 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 						// if (unlikely(pkt_cnt == HEARTBEAT_N)) {
 						if (pkt_cnt == HEARTBEAT_N) {
 							for (int i = 0; i < ARR_SIZE; i++){
-								RTE_LOG(DEBUG, DEFAULT_DEBUG, "%lu: %lu | ", fdinfo.arr_timestamp[i].heartbeat_id, fdinfo.arr_timestamp[i].hb_timestamp);
+								RTE_LOG(DEBUG, DEFAULT_DEBUG, "%lu: %lu | \n", fdinfo.arr_timestamp[i].heartbeat_id, fdinfo.arr_timestamp[i].hb_timestamp);
 							}
-							RTE_LOG(DEBUG, DEFAULT_DEBUG, "\n");
 
 							int i;
 							uint64_t moving_sum = 0;
@@ -141,9 +140,8 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 						} else {
 							RTE_LOG(DEBUG, DEFAULT_DEBUG, "too early to put an estimate, but the arrival time is %lu\n", receipt_time);
 							for (int i = 0; i < ARR_SIZE; i++){
-								RTE_LOG(DEBUG, DEFAULT_DEBUG, "%lu: %lu | ", fdinfo.arr_timestamp[i].heartbeat_id, fdinfo.arr_timestamp[i].hb_timestamp);
+								RTE_LOG(DEBUG, DEFAULT_DEBUG, "%lu: %lu | \n", fdinfo.arr_timestamp[i].heartbeat_id, fdinfo.arr_timestamp[i].hb_timestamp);
 							}
-							RTE_LOG(DEBUG, DEFAULT_DEBUG, "\n");
 						}
 					}
 				}
