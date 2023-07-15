@@ -98,6 +98,7 @@ lcore_mainloop_send_heartbeat(struct lcore_params *p)
             int exp_delay = (int)rv*1000;
             rte_delay_us_sleep(DELTA_I * 1000 + exp_delay);
         } else {
+            printf("MESSAGE LOSS\n");
             rte_delay_us_sleep(DELTA_I * 1000);
         }
 	}

@@ -6,10 +6,12 @@ timer1_cb(struct rte_timer *tim, void *arg)
 {
 	unsigned lcore_id = rte_lcore_id();
 
+	uint64_t suspected_time = rte_rdtsc();
 
 	// rewire the timer even for the suspected node
 	uint64_t rewired_amount = (uint64_t) arg;
 	printf("!!%lu!! suspected\n", rewired_amount);
+	printf("Suspected Time: %lu\n", suspected_time);
 
 	// rte_timer_reset(tim, rewired_amount, SINGLE, lcore_id, timer1_cb, (void *)rewired_amount);
 }
