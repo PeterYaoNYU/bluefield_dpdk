@@ -60,6 +60,9 @@
 // the probability of a packet loss
 #define PROBABILITY_NOT_SEND 0.01
 
+// carsh time: crash after sending this many messages
+#define CRASH_TIME 1500
+
 struct lcore_params {
     uint16_t rx_queue_id;
     uint16_t tx_queue_id;

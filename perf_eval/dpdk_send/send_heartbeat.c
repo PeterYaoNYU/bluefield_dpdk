@@ -10,8 +10,8 @@ double exponential_random(double lambda) {
 
 // mainloop should be done either through sleeping or through a timer interrupt 
 // use __rte_noreturn macro should lead to more optimized code  
-__rte_noreturn int
-lcore_mainloop_send_heartbeat(struct lcore_params *p)
+// __rte_noreturn int
+int lcore_mainloop_send_heartbeat(struct lcore_params *p)
 {
 	// uint64_t prev_tsc = 0, cur_tsc, diff_tsc;
 	unsigned lcore_id;
@@ -101,8 +101,13 @@ lcore_mainloop_send_heartbeat(struct lcore_params *p)
             printf("MESSAGE LOSS\n");
             rte_delay_us_sleep(DELTA_I * 1000);
         }
+
+        if (hb_id == CRASH_TIME){
+            break;
+        }
 	}
 	/* >8 End of main loop. */
+    return 0;
 }
 
 int lcore_send_heartbeat_pkt(struct lcore_params *p, uint64_t hb_id, struct rte_mbuf **pkts)
