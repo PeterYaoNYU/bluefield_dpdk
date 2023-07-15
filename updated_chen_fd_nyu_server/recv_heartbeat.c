@@ -49,7 +49,7 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 	unsigned lcore_id = rte_lcore_id();
 	printf("Core %u doing RX dequeue.\n", lcore_id);
 
-	uint64_t pkt_cnt = -1;
+	uint64_t pkt_cnt = 0;
 
 	while (1){
 		struct rte_mbuf *bufs[BURST_SIZE];
@@ -114,7 +114,7 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 							struct hb_timestamp hb;
 							for (i = 0; i < HEARTBEAT_N; i++){
 								hb = fdinfo.arr_timestamp[i];
-								moving_sum += (hb.hb_timestamp - hb.heartbeat_id * hz);
+								moving_sum += (hb.hb_timestamp - (hb.heartbeat_id - 1) * hz);
 								// printf("%d: %lu, moving sum: %lu\n", hb.heartbeat_id, (hb.hb_timestamp - hb.heartbeat_id * fdinfo.delta_i * hz / ), moving_sum);
 								printf("%lu: %lu, moving sum: %lu\n", hb.heartbeat_id, (hb.hb_timestamp - hb.heartbeat_id * hz), moving_sum);
 							}
