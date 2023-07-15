@@ -20,6 +20,7 @@
 #include <rte_cycles.h>
 #include <rte_timer.h>
 #include <rte_debug.h>
+#include <rte_log.h>
 
 #include <inttypes.h>
 #include <unistd.h>
@@ -30,6 +31,9 @@
 #include <sys/queue.h>
 
 #include "util.h"
+
+// self defined log type
+#define FD_OUTPUT RTE_LOGTYPE_USER1
 
 #define RX_RING_SIZE 1024
 #define TX_RING_SIZE 1024

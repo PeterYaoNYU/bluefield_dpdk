@@ -10,8 +10,9 @@ timer1_cb(struct rte_timer *tim, void *arg)
 
 	// rewire the timer even for the suspected node
 	uint64_t rewired_amount = (uint64_t) arg;
-	printf("!!%lu!! suspected\n", rewired_amount);
-	printf("Suspected Time: %lu\n", suspected_time);
+
+	RTE_LOG(INFO, FD_OUTPUT, "!!%lu!! suspected\n", rewired_amount);
+	RTE_LOG(INFO, FD_OUTPUT, "Suspected Time: %lu\n", suspected_time);
 
 	// rte_timer_reset(tim, rewired_amount, SINGLE, lcore_id, timer1_cb, (void *)rewired_amount);
 }
@@ -21,7 +22,7 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 {
 	// need to make a translation between the number of cycles per second and the number of seconds of our EA
 	uint64_t hz_per_sec = rte_get_timer_hz();
-	printf("the hz is %lu\n", hz_per_sec);
+	RTE_LOG(DEBUG, RTE_LOGTYPE_DEFAULT, "the hz is %lu\n", hz_per_sec);
 	// now real_interval is the real number of clock tick between 2 emissions
 	uint64_t hz = hz_per_sec * DELTA_I / 1000;
 	printf("the real gap of clock ticks is %lu\n", hz);
