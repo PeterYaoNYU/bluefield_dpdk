@@ -1,6 +1,13 @@
 #include "send_heartbeat.h"
 
 
+// add an random delay following the exponential distribution
+double exponential_random(double lambda) {
+    double u;
+    u = (double)rand() / RAND_MAX;  // Generate a random number between 0 and 1
+    return -log(1 - u) / lambda;    // Calculate the exponential random number
+}
+
 // mainloop should be done either through sleeping or through a timer interrupt 
 // use __rte_noreturn macro should lead to more optimized code  
 __rte_noreturn int
@@ -65,13 +72,22 @@ lcore_mainloop_send_heartbeat(struct lcore_params *p)
         pkts[i]->pkt_len = pkt_size;   
     }
 
+    double lambda = 1.0 / 30.0;
+    // Seed the random number generator
+    srand(time(NULL));
+
 	/* Main loop. 8< */
 	while (1) {
         lcore_send_heartbeat_pkt(p, hb_id, pkts);
         hb_id++;
         // sleep in a non-busy manner, can still schedule other tasks on that core 
         // the sleep is set to 100 ms!!!
-        rte_delay_us_sleep(DELTA_I * 1000);
+        double rv = exponential_random(lambda);
+        
+        printf("Exponential Random Value %ld: %f\n", hb_id, rv);
+
+        int exp_delay = (int)rv*1000;
+        rte_delay_us_sleep(DELTA_I * 1000 + exp_delay);
 	}
 	/* >8 End of main loop. */
 }
