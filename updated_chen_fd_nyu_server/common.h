@@ -64,7 +64,7 @@
 // the heartbeat interval defined here, in millisecond. 
 #define DELTA_I 100
 
-#define SAFETY_MARGIN 200
+#define SAFETY_MARGIN 300
 
 struct lcore_params {
     uint16_t rx_queue_id;
