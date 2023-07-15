@@ -18,11 +18,14 @@ timer1_cb(struct rte_timer *tim, void *arg)
 int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 {
 	// need to make a translation between the number of cycles per second and the number of seconds of our EA
-	uint64_t hz = rte_get_timer_hz();
-	printf("the hz is %lu\n", hz);
+	uint64_t hz_per_sec = rte_get_timer_hz();
+	printf("the hz is %lu\n", hz_per_sec);
 	// now real_interval is the real number of clock tick between 2 emissions
-	hz = hz * DELTA_I / 1000;
+	uint64_t hz = hz_per_sec * DELTA_I / 1000;
 	printf("the real gap of clock ticks is %lu\n", hz);
+
+	// the variable safety margin in terms of clock ticks
+	uint64_t safety_margin = hz_per_sec * SAFETY_MARGIN / 1000;
 
 	// this is the number of ticks per second  
 
@@ -59,7 +62,7 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 			continue;
 		}
 
-		printf("received %u packets in this burst\n", nb_rx);
+		// printf("received %u packets in this burst\n", nb_rx);
 		uint16_t i;
 		for (i = 0; i < nb_rx; i++){
             struct rte_mbuf *pkt = bufs[i];
@@ -116,7 +119,7 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 							}
 							fdinfo.ea = moving_sum / HEARTBEAT_N + (HEARTBEAT_N+1) * hz;
 							printf("putting the first estimate %lu\n", fdinfo.ea);
-							rte_timer_reset(tim, fdinfo.ea - receipt_time, SINGLE, lcore_id, timer1_cb, (void *)(fdinfo.ea - receipt_time));
+							rte_timer_reset(tim, fdinfo.ea - receipt_time + safety_margin, SINGLE, lcore_id, timer1_cb, (void *)(fdinfo.ea - receipt_time));
 						} else if (pkt_cnt > HEARTBEAT_N){
 							// calculate the new estimeated arrival time 
 							fdinfo.ea = fdinfo.ea + ((receipt_time - (fdinfo.evicted_time)) / HEARTBEAT_N);
@@ -126,7 +129,7 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 							fdinfo.next_evicted = (fdinfo.next_evicted + 1) % 10;
 							
 							// rewire the timer to the next estimation of the arrival time
-							rte_timer_reset(tim, fdinfo.ea - receipt_time, SINGLE, lcore_id, timer1_cb, (void *)(fdinfo.ea - receipt_time));
+							rte_timer_reset(tim, fdinfo.ea - receipt_time + safety_margin, SINGLE, lcore_id, timer1_cb, (void *)(fdinfo.ea - receipt_time));
 						} else {
 							printf("too early to put an estimate, but the arrival time is %lu\n", receipt_time);
 							for (int i = 0; i < ARR_SIZE; i++){
