@@ -94,7 +94,7 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 						uint64_t receipt_time = rte_rdtsc();
 						fdinfo.evicted_time = fdinfo.arr_timestamp[fdinfo.next_evicted].hb_timestamp;
 
-						printf("storing the receipt time into index: %d\n", fdinfo.next_avail);
+						// printf("storing the receipt time into index: %d\n", fdinfo.next_avail);
 
 						// fdinfo.arr_timestamp[fdinfo.next_avail] = (struct hb_timestamp) { .heartbeat_id = pkt_cnt, .hb_timestamp = receipt_time};
 						fdinfo.arr_timestamp[fdinfo.next_avail].heartbeat_id = pkt_cnt;
