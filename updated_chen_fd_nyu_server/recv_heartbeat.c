@@ -107,7 +107,7 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 
 						
 						// increment the next_avail variable 
-						fdinfo.next_avail = (fdinfo.next_avail + 1) % 100;
+						fdinfo.next_avail = (fdinfo.next_avail + 1) % 50;
 
 						// if (unlikely(pkt_cnt == HEARTBEAT_N)) {
 						if (pkt_cnt == HEARTBEAT_N) {
@@ -133,7 +133,7 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 							RTE_LOG(DEBUG, DEFAULT_DEBUG, "FD: %lu th HB arriving, at time %lu, esti: %lu, evicted: %lu\n", pkt_cnt, receipt_time, fdinfo.ea, fdinfo.evicted_time);
 
 							// update the next_evicted variable
-							fdinfo.next_evicted = (fdinfo.next_evicted + 1) % 100;
+							fdinfo.next_evicted = (fdinfo.next_evicted + 1) % 50;
 							
 							// rewire the timer to the next estimation of the arrival time
 							rte_timer_reset(tim, fdinfo.ea - receipt_time + safety_margin, SINGLE, lcore_id, timer1_cb, (void *)(fdinfo.ea - receipt_time + safety_margin));
