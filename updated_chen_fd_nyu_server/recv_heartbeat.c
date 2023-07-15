@@ -120,7 +120,7 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 							struct hb_timestamp hb;
 							for (i = 0; i < HEARTBEAT_N; i++){
 								hb = fdinfo.arr_timestamp[i];
-								moving_sum += (hb.hb_timestamp - hb.heartbeat_id * hz);
+								moving_sum += (hb.hb_timestamp - (hb.heartbeat_id-1) * hz);
 								// printf("%d: %lu, moving sum: %lu\n", hb.heartbeat_id, (hb.hb_timestamp - hb.heartbeat_id * fdinfo.delta_i * hz / ), moving_sum);
 								RTE_LOG(DEBUG, DEFAULT_DEBUG, "%lu: %lu, moving sum: %lu\n", hb.heartbeat_id, (hb.hb_timestamp - hb.heartbeat_id * hz), moving_sum);
 							}
