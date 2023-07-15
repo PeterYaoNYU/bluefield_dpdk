@@ -57,6 +57,9 @@
 // the heartbeat interval defined here, in millisecond. 
 #define DELTA_I 100
 
+// the probability of a packet loss
+#define PROBABILITY_NOT_SEND 0.01
+
 struct lcore_params {
     uint16_t rx_queue_id;
     uint16_t tx_queue_id;

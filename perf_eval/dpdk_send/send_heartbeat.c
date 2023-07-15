@@ -16,6 +16,9 @@ lcore_mainloop_send_heartbeat(struct lcore_params *p)
 	// uint64_t prev_tsc = 0, cur_tsc, diff_tsc;
 	unsigned lcore_id;
 
+    // this variable is used to determine if this message is considered lost or not
+    double probability;
+
 	lcore_id = rte_lcore_id();
 	printf("Starting mainloop of sending heartbeat on core %u\n", lcore_id);
 
@@ -78,16 +81,25 @@ lcore_mainloop_send_heartbeat(struct lcore_params *p)
 
 	/* Main loop. 8< */
 	while (1) {
-        lcore_send_heartbeat_pkt(p, hb_id, pkts);
-        hb_id++;
-        // sleep in a non-busy manner, can still schedule other tasks on that core 
-        // the sleep is set to 100 ms!!!
-        double rv = exponential_random(lambda);
-        
-        printf("Exponential Random Value %ld: %f\n", hb_id, rv);
 
-        int exp_delay = (int)rv*1000;
-        rte_delay_us_sleep(DELTA_I * 1000 + exp_delay);
+        // Generate random value between 0 and 1
+        probability = (double)rand() / RAND_MAX;
+
+        hb_id++;
+
+        if (probability > PROBABILITY_NOT_SEND){
+            lcore_send_heartbeat_pkt(p, hb_id, pkts);
+            // sleep in a non-busy manner, can still schedule other tasks on that core 
+            // the sleep is set to 100 ms!!!
+            double rv = exponential_random(lambda);
+            
+            printf("Exponential Random Value %ld: %f\n", hb_id, rv);
+
+            int exp_delay = (int)rv*1000;
+            rte_delay_us_sleep(DELTA_I * 1000 + exp_delay);
+        } else {
+            rte_delay_us_sleep(DELTA_I * 1000);
+        }
 	}
 	/* >8 End of main loop. */
 }
