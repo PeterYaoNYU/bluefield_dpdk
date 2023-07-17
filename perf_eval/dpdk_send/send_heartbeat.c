@@ -97,13 +97,31 @@ int lcore_mainloop_send_heartbeat(struct lcore_params *p)
 
             int exp_delay = (int)rv*1000;
             rte_delay_us_sleep(DELTA_I * 1000 + exp_delay);
+
+            // begin eval
+            if (hb_id == CRASH_TIME){
+                FILE * result_file = fopen("delay.txt", "a");
+                if (result_file == NULL){
+		            printf("Failed to open the file.\n");
+	            }
+                fprintf(result_file, "the last delay is %f\n", rv);
+                fclose(result_file);
+            }
+            // end eval
         } else {
             printf("MESSAGE LOSS\n");
             rte_delay_us_sleep(DELTA_I * 1000);
-        }
 
-        if (hb_id == CRASH_TIME){
-            break;
+            // begin eval
+            if (hb_id == CRASH_TIME){
+                FILE * result_file = fopen("delay.txt", "a");
+                if (result_file == NULL){
+		            printf("Failed to open the file.\n");
+	            }
+                fprintf(result_file, "the last message is lost\n");
+                fclose(result_file);
+            }
+            // end eval
         }
 	}
 	/* >8 End of main loop. */
