@@ -106,6 +106,7 @@ int lcore_mainloop_send_heartbeat(struct lcore_params *p)
 	            }
                 fprintf(result_file, "the last delay is %f\n", rv);
                 fclose(result_file);
+                break;
             }
             // end eval
         } else {
@@ -120,6 +121,7 @@ int lcore_mainloop_send_heartbeat(struct lcore_params *p)
 	            }
                 fprintf(result_file, "the last message is lost\n");
                 fclose(result_file);
+                break;
             }
             // end eval
         }

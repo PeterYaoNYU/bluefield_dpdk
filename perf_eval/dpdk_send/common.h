@@ -62,7 +62,7 @@
 #define PROBABILITY_NOT_SEND 0.01
 
 // carsh time: crash after sending this many messages
-#define CRASH_TIME 1500
+#define CRASH_TIME 500
 
 struct lcore_params {
     uint16_t rx_queue_id;
