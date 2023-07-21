@@ -95,7 +95,7 @@ def inference(param_queue, infer_mq):
         
         # now making inference:
         dataset = np.array(received_array)
-        dataset = dataset * 0.00000001
+        dataset = dataset * 0.000001
         # print(dataset)
         
         start = dataset[0]
@@ -108,7 +108,7 @@ def inference(param_queue, infer_mq):
         dataset = dataset.reshape(-1,1)
         dataset = scaler.fit_transform(dataset)
         
-        print(dataset)
+        # print(dataset)
         # print("before reshaping: ", dataset.shape)  
         # print(dataset.shape)
         
@@ -121,8 +121,8 @@ def inference(param_queue, infer_mq):
         
         # invert predictions
         next_arrival = scaler.inverse_transform(next_arrival)
-        # next_arrival = next_arrival + start
-        # next_arrival = next_arrival * 1 / 0.00000001
+        next_arrival = next_arrival + start
+        next_arrival = next_arrival / 0.000001
         
         print("next arrival (after scaling back): ", next_arrival[0][0])
         
@@ -134,11 +134,11 @@ def inference(param_queue, infer_mq):
 def train(param_queue):
     look_back = 50
     
-    ARR_SIZE = 200
+    ARR_SIZE = 1000
 
     # Message queue parameters
     mq_name = '/ml_train'
-    queue_size = 200
+    queue_size = 1000
     message_size = ctypes.sizeof(ctypes.c_uint64) * ARR_SIZE
 
     print("message size: ", message_size)
@@ -161,7 +161,7 @@ def train(param_queue):
         print("!!!!!!!!!!!!!!!!!!!!!!!")
         
         dataset = np.array(received_array)
-        dataset = dataset * 0.00000001
+        dataset = dataset * 0.000001
         # print(dataset)
         
         start = dataset[0]
@@ -179,7 +179,7 @@ def train(param_queue):
         trainX = np.reshape(trainX, (trainX.shape[0], 1, trainX.shape[1]))
         
         print("****************")
-        print(dataset)
+        # print(dataset)
     
         # create and fit the LSTM network
         model = Sequential()

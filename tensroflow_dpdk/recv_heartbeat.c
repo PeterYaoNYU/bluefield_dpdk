@@ -148,10 +148,16 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 	printf("the max message size in bytes of the control mq is %ld\n", control_mq_attr.mq_msgsize);
 
 
-	if ((send_mq == (mqd_t)-1) || (control_mq == (mqd_t)-1) || (infer_data_mq == (mqd_t)-1)){
+	// if ((send_mq == (mqd_t)-1) || (control_mq == (mqd_t)-1) || (infer_data_mq == (mqd_t)-1)){
+	if (send_mq == (mqd_t)-1) {
 		perror("mq_open failure");
 	} else {
-		printf("Message queue opened successfully!\n");
+		printf("Message queue that sends the training data is opened successfully!\n");
+		struct mq_attr attr;
+		mq_getattr(send_mq, &attr);
+		printf("mq maxmsg is %ld\n", attr.mq_maxmsg);
+		printf("mq msgsize is %ld\n", attr.mq_msgsize);
+		printf("mq curmsg is %ld\n", attr.mq_curmsgs);
 	}
 	
 	while (1){
@@ -200,7 +206,7 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 						fdinfo.arr_timestamp[fdinfo.next_avail] = receipt_time;
 						
 						// increment the next_avail variable 
-						fdinfo.next_avail = (fdinfo.next_avail + 1) % 200;
+						fdinfo.next_avail = (fdinfo.next_avail + 1) % 1000;
 
 						if (pkt_cnt % HEARTBEAT_N == 0){
 							// send the data to the model for training

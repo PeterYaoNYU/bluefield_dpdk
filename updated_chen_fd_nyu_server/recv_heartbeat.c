@@ -57,12 +57,6 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 
 	uint64_t pkt_cnt = 0;
 
-	FILE * result_file = fopen("output.txt", "a");
-
-	if (result_file == NULL){
-		RTE_LOG(INFO, SYS_INFO, "Failed to open the file.\n");
-	}
-
 	while (1){
 		struct rte_mbuf *bufs[BURST_SIZE];
 		uint16_t nb_rx = rte_eth_rx_burst(0, p->rx_queue_id, bufs, BURST_SIZE);
@@ -142,10 +136,17 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 							// update the next_evicted variable
 							fdinfo.next_evicted = (fdinfo.next_evicted + 1) % 50;
 
-							if (pkt_cnt == 1500){
+							if (pkt_cnt == STOP_TIME){
+								// begin eval
+								FILE * result_file = fopen("output.txt", "a");
+
+								if (result_file == NULL){
+									RTE_LOG(INFO, SYS_INFO, "Failed to open the file.\n");
+								}
 								fprintf(result_file, "the time it takes to start suspecting is %lu\n", fdinfo.ea - receipt_time + safety_margin);
 								fclose(result_file);
 								break;
+								// end eval
 							}
 							
 							// rewire the timer to the next estimation of the arrival time

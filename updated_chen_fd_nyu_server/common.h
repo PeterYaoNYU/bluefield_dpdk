@@ -66,6 +66,9 @@
 
 #define SAFETY_MARGIN 700
 
+// the point when the sending of the messages come to an end
+#define STOP_TIME 1500
+
 struct lcore_params {
     uint16_t rx_queue_id;
     uint16_t tx_queue_id;

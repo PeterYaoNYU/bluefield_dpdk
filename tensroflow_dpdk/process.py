@@ -2,11 +2,11 @@ import posix_ipc
 import ctypes
 import struct
 
-ARR_SIZE = 200
+ARR_SIZE = 1000
 
 # Message queue parameters
 mq_name = '/ml_train'
-queue_size = 200
+queue_size = 1000
 message_size = ctypes.sizeof(ctypes.c_uint64) * ARR_SIZE
 
 print("message size: ", message_size)
