@@ -134,7 +134,7 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 	// TO-DO:
 	// later, the send_mq should be changed to a local scope variable as well
 
-    send_mq = mq_open(QUEUE_NAME, O_RDWR);
+    send_mq = mq_open(QUEUE_NAME, O_WRONLY);
 	// the control message queue is opened in a non-blocking manner
 
 	// !!!!!!!!!!!!!TODO:

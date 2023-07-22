@@ -135,23 +135,32 @@ def train(param_queue):
     look_back = 50
     
     ARR_SIZE = 1000
-
-    # Message queue parameters
-    mq_name = '/ml_train'
-    queue_size = 1000
-    message_size = ctypes.sizeof(ctypes.c_uint64) * ARR_SIZE
-
-    print("message size: ", message_size)
     
-    # create a new posix message queue
-    # this queue is for DPDK to transmit training data to the model
-    mq = posix_ipc.MessageQueue(mq_name, flags = posix_ipc.O_CREAT, mode = 0o666, max_messages = queue_size, max_message_size = message_size)
-    # Print the message queue's descriptor
-    print("Message queue created with descriptor:", mq.mqd)
-    
+    test_mq_name = "/test_msg"
+    queue_size = 10
+    message_size = ctypes.sizeof(ctypes.c_int) * queue_size
+    test_mq = posix_ipc.MessageQueue(test_mq_name, flags = posix_ipc.O_CREAT, mode = 0o666, max_messages = queue_size, max_message_size = message_size)
+    print("test_ok")
+
+
+    train_mq_name = "/train_data"
+    queue_size = 200
+    message_size = ctypes.sizeof(ctypes.c_uint64) * queue_size
+    train_mq = posix_ipc.MessageQueue(train_mq_name, flags = posix_ipc.O_CREAT, mode = 0o666, max_messages = queue_size, max_message_size = message_size)
+    print("ok")
+     
     while(True):
         # Receive message from the queue
-        message, _ = mq.receive()
+        # message, _ = train_mq.receive()
+        message = []
+        for _ in range(1000):
+            element, _ = train_mq.receive()
+            message.append(element)
+                
+        # troubleshoot
+        print(len(message))   # Print the length of the message buffer
+        print(ARR_SIZE)       # Print the value of ARR_SIZE
+        print(struct.calcsize(f'{ARR_SIZE}Q'))  # Print the expected size of the unpacked data
         
         # Interpret the received message as an array of uint64_t
         received_array = struct.unpack(f'{ARR_SIZE}Q', message)

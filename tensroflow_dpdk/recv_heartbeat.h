@@ -5,7 +5,7 @@
 #include <mqueue.h>
 #include <signal.h>
 
-#define QUEUE_NAME      "/ml_train"
+#define QUEUE_NAME      "/train_data"
 #define CONTROL_MQ_NAME "/ctrl_msg"
 #define INFER_MQ_NAME   "/infer_data"
 
