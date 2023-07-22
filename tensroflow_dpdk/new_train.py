@@ -124,8 +124,11 @@ def inference(param_queue, infer_mq):
         next_arrival = next_arrival * (end - start) + start
         
         print("next arrival (after scaling back): ", next_arrival[0][0])
+        next_arrival = int(next_arrival.item())
         
         # TODO send the result back to dpdk
+        packed_next_arrival_ts = struct.pack("Q", next_arrival)
+        result_mq.send(packed_next_arrival_ts)
         
     # get the lookback information from DPDK and do inference
     # then send the result back to DPDK
@@ -164,7 +167,7 @@ def train(param_queue):
      
     while(True):
         if (first_train):
-            while (train_data_count < 1000):
+            while (train_data_count < 200):
                 message, _ = train_mq.receive()
                 received_array = struct.unpack(f'{ARR_SIZE}Q', message)
                 all_data = all_data + list(received_array)

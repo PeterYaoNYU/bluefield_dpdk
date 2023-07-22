@@ -61,15 +61,18 @@ send_to_ml_model(uint64_t* ts, mqd_t mq_desc, size_t input_size)
 	return 0;
 }
 
-int send_to_infer(uint64_t* ts, mqd_t mq_desc, int next_idx){
-	uint64_t send_buffer[LOOK_BACK];
+int send_to_infer(uint64_t* ts, mqd_t mq_desc, int next_idx, uint64_t pkt_cnt){
+	uint64_t send_buffer[LOOK_BACK+1];
 	int i;
 	int offset = LOOK_BACK - 1;
+
+	// for matching purpose
+	send_buffer[0] = pkt_cnt
 
 	for (i = LOOK_BACK; i > 0; i--){
 		int array_index = (next_idx - i - 1 - offset + ARR_SIZE) % ARR_SIZE;
 		// printf("cloning the %d th element to infer send, with array idx %d\n", i, array_index);
-		send_buffer[LOOK_BACK-i] = ts[array_index];
+		send_buffer[LOOK_BACK-i+1] = ts[array_index];
 	}
 	mq_send(mq_desc, (const char*)send_buffer, sizeof(send_buffer), 0);
 }
@@ -88,9 +91,20 @@ timer1_cb(struct rte_timer *tim, void *arg)
 	// rte_timer_reset(tim, rewired_amount, SINGLE, lcore_id, timer1_cb, (void *)rewired_amount);
 }
 
+uint64_t recv_prediction(mqd_t mq){
+	uint64_t received_data;
+    if (mq_receive(mq, (char *)&received_data, sizeof(uint64_t), NULL) == -1) {
+        perror("mq_receive");
+        exit(1);
+    }
+    printf("Received data: %lu\n", received_data);
+	return received_data;
+}
+
 // int lcore_recv_heartbeat_pkt(struct lcore_params *p, struct fd_info * fdinfo, struct rte_timer * tim)
 int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 {
+	uint64_t next_arrival;
 	// need to make a translation between the number of cycles per second and the number of seconds of our EA
 	uint64_t hz = rte_get_timer_hz();
 	printf("the hz is %lu\n", hz);
@@ -142,6 +156,8 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
  	mqd_t control_mq = mq_open(CONTROL_MQ_NAME, O_RDWR|O_NONBLOCK);
 	// the infer_data_mq is from the DPDK to the Inference model, transmitting timestamps to make an inference
 	mqd_t infer_data_mq = mq_open(INFER_MQ_NAME, O_RDWR);
+	// the result mq is from the Inferece Module to the DPDK, transmitting the predction value
+	mqd_t result_mq = mq_open(RESULT_MQ_NAME, O_RDWR);
 
 	struct mq_attr control_mq_attr;
 	mq_getattr(control_mq, &control_mq_attr);
@@ -240,6 +256,14 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 							printf("ready to infer\n");
 							printf("!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
 							send_to_infer(fdinfo.arr_timestamp, infer_data_mq, fdinfo.next_avail);
+							next_arrival = recv_prediction(result_mq);
+							uint64_t current_time = rte_rdtsc();
+							if (next_arrival < current_time){
+								printf("generate the prediction too late!!!\n");
+							} else {
+								printf("next_arrival: %ld, current time: %ld\n", next_arrival, current_time);
+								rte_timer_reset(tim, next_arrival - current_time, SINGLE, lcore_id, timer1_cb, (void *)(next_arrival - current_time));
+							}
 						}
 					}
 				}
