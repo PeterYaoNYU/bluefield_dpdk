@@ -131,17 +131,44 @@ def inference(param_queue, infer_mq):
     # get the lookback information from DPDK and do inference
     # then send the result back to DPDK
     
+    
+def data_preprocess(all_data):
+    dataset = np.array(all_data)
+    dataset = dataset * 0.000001
+    # print(dataset)
+    
+    start = dataset[0]
+    end = dataset[-1]
+    interval = end - start
+    
+    dataset = dataset - start
+    
+    scaler = MinMaxScaler(feature_range=(0, 1))
+    dataset = dataset.reshape(-1,1)
+    dataset = scaler.fit_transform(dataset)
+    
+    trainX, trainY = create_dataset(dataset, look_back=look_back)
+    
+    trainX = np.reshape(trainX, (trainX.shape[0], 1, trainX.shape[1]))
+    return trainX, trainY, start, scaler
+
+    
 def train(param_queue):
     look_back = 50
     
-    ARR_SIZE = 1000
+    ARR_SIZE = 200
     
-    test_mq_name = "/test_msg"
-    queue_size = 10
-    message_size = ctypes.sizeof(ctypes.c_int) * queue_size
-    test_mq = posix_ipc.MessageQueue(test_mq_name, flags = posix_ipc.O_CREAT, mode = 0o666, max_messages = queue_size, max_message_size = message_size)
-    print("test_ok")
-
+    # for debugging the message queue
+    # test_mq_name = "/test_msg"
+    # queue_size = 10
+    # message_size = ctypes.sizeof(ctypes.c_int) * queue_size
+    # test_mq = posix_ipc.MessageQueue(test_mq_name, flags = posix_ipc.O_CREAT, mode = 0o666, max_messages = queue_size, max_message_size = message_size)
+    # print("test_ok")
+    
+    
+    train_data_count = 0
+    first_train = True
+    all_data = []
 
     train_mq_name = "/train_data"
     queue_size = 200
@@ -150,63 +177,48 @@ def train(param_queue):
     print("ok")
      
     while(True):
-        # Receive message from the queue
-        # message, _ = train_mq.receive()
-        message = []
-        for _ in range(1000):
-            element, _ = train_mq.receive()
-            message.append(element)
+        if (first_train):
+            while (train_data_count < 10000):
+                message, _ = train_mq.receive()
+                received_array = struct.unpack(f'{ARR_SIZE}Q', message)
+                all_data = all_data + list(received_array)
+                train_data_count = train_data_count + len(received_array)
+                print("length: ", len(received_array))
+                print(all_data)
+            # first_train = False
+        else:
+            # Receive message from the queue
+            message, _ = train_mq.receive()
+            all_data = struct.unpack(f'{ARR_SIZE}Q', message)
                 
-        # troubleshoot
-        print(len(message))   # Print the length of the message buffer
-        print(ARR_SIZE)       # Print the value of ARR_SIZE
-        print(struct.calcsize(f'{ARR_SIZE}Q'))  # Print the expected size of the unpacked data
+        # # troubleshoot
+        # print(len(message))   # Print the length of the message buffer
+        # print(ARR_SIZE)       # Print the value of ARR_SIZE
+        # print(struct.calcsize(f'{ARR_SIZE}Q'))  # Print the expected size of the unpacked data
         
         # Interpret the received message as an array of uint64_t
-        received_array = struct.unpack(f'{ARR_SIZE}Q', message)
+        # received_array = struct.unpack(f'{ARR_SIZE}Q', message) 
         
-        print("!!!!!!!!!!!!!!!!!!!!!!!")
-        print(received_array)
-        print("!!!!!!!!!!!!!!!!!!!!!!!")
-        
-        dataset = np.array(received_array)
-        dataset = dataset * 0.000001
-        # print(dataset)
-        
-        start = dataset[0]
-        end = dataset[-1]
-        interval = end - start
-        
-        dataset = dataset - start
-        
-        scaler = MinMaxScaler(feature_range=(0, 1))
-        dataset = dataset.reshape(-1,1)
-        dataset = scaler.fit_transform(dataset)
-        
-        trainX, trainY = create_dataset(dataset, look_back=look_back)
-        
-        trainX = np.reshape(trainX, (trainX.shape[0], 1, trainX.shape[1]))
-        
-        print("****************")
-        # print(dataset)
-    
-        # create and fit the LSTM network
-        model = Sequential()
-        model.add(LSTM(4, input_shape=(1, look_back)))
-        model.add(Dense(1))
-        model.compile(loss=custom_loss, optimizer='adam', metrics=['accuracy'])
-        model.fit(trainX, trainY, epochs=10, batch_size=1, verbose=2)
+        if (first_train):   
+            trainX, trainY, start, scaler = data_preprocess(all_data)
+            
+            # create and fit the LSTM network
+            model = Sequential()
+            model.add(LSTM(4, input_shape=(1, look_back)))
+            model.add(Dense(1))
+            model.compile(loss='mean_squared_error', optimizer='adam', metrics=['accuracy'])
+            model.fit(trainX, trainY, epochs=10, batch_size=1, verbose=2)
         
         # make predictions
-        trainPredict = model.predict(trainX)
-        
-        # invert predictions
-        trainPredict = scaler.inverse_transform(trainPredict)
-        trainY = scaler.inverse_transform([trainY])
-        
-        # calculate root mean squared error
-        trainScore = math.sqrt(mean_squared_error(trainY[0], trainPredict[:,0]))
-        print('Train Score: %.2f RMSE' % (trainScore))
+            trainPredict = model.predict(trainX)
+            
+            # invert predictions
+            trainPredict = scaler.inverse_transform(trainPredict)
+            trainY = scaler.inverse_transform([trainY])
+            
+            # calculate root mean squared error
+            trainScore = math.sqrt(mean_squared_error(trainY[0], trainPredict[:,0]))
+            print('Train Score: %.2f RMSE' % (trainScore))
         
         # because python does not support parallel execution on multicores for threads
         # we have to resort to multi processing
@@ -216,8 +228,14 @@ def train(param_queue):
         # here I used the multiprocessing package for forking and msg queue among python processes
         
         # Get the model parameters
-        model_params = model.get_weights()    
-        param_queue.put(model_params)
+            model_params = model.get_weights()    
+            param_queue.put(model_params)
+            first_train = False    
+        else:
+            trainX, trainY, start, scaler = data_preprocess(all_data)
+            model.fit(trainX, trainY, epochs=5, batch_size=1, verbose=2)
+            model_params = model.get_weights()    
+            param_queue.put(model_params)
     
     # do the clean up of the resources that we have opened
     mq.close()

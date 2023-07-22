@@ -206,7 +206,7 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 						fdinfo.arr_timestamp[fdinfo.next_avail] = receipt_time;
 						
 						// increment the next_avail variable 
-						fdinfo.next_avail = (fdinfo.next_avail + 1) % 1000;
+						fdinfo.next_avail = (fdinfo.next_avail + 1) % 200;
 
 						if (pkt_cnt % HEARTBEAT_N == 0){
 							// send the data to the model for training
