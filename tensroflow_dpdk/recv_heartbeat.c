@@ -61,18 +61,15 @@ send_to_ml_model(uint64_t* ts, mqd_t mq_desc, size_t input_size)
 	return 0;
 }
 
-int send_to_infer(uint64_t* ts, mqd_t mq_desc, int next_idx, uint64_t pkt_cnt){
-	uint64_t send_buffer[LOOK_BACK+1];
+int send_to_infer(uint64_t* ts, mqd_t mq_desc, int next_idx){
+	uint64_t send_buffer[LOOK_BACK];
 	int i;
 	int offset = LOOK_BACK - 1;
-
-	// for matching purpose
-	send_buffer[0] = pkt_cnt
 
 	for (i = LOOK_BACK; i > 0; i--){
 		int array_index = (next_idx - i - 1 - offset + ARR_SIZE) % ARR_SIZE;
 		// printf("cloning the %d th element to infer send, with array idx %d\n", i, array_index);
-		send_buffer[LOOK_BACK-i+1] = ts[array_index];
+		send_buffer[LOOK_BACK-i] = ts[array_index];
 	}
 	mq_send(mq_desc, (const char*)send_buffer, sizeof(send_buffer), 0);
 }
