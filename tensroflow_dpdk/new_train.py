@@ -54,6 +54,12 @@ def inference(param_queue, infer_mq):
     ctrl_mq = posix_ipc.MessageQueue(control_mq_name, flags = posix_ipc.O_CREAT, mode = 0o666, max_messages = queue_size, max_message_size = message_size)
     look_back = 50
     
+    # this mqueue is for transmitting the already predicted result
+    result_mq_name = "/result_mq"
+    queue_size = 100
+    message_size = ctypes.sizeof(ctypes.c_uint64)
+    result_mq = posix_ipc.MessageQueue(result_mq_name, flags = posix_ipc.O_CREAT, mode = 0o666, max_messages = queue_size, max_message_size = message_size)
+    
     print("!!!!!!!!!!!!!!")
     print("waiting for the parameter of the model to come!!!")
     print("!!!!!!!!!!!!!!")
