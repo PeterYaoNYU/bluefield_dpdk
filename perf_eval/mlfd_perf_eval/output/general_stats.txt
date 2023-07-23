@@ -1,0 +1,17 @@
+*******************New Run*******************
+false_positives: 2879
+late_predictions: 71
+false_positives: 2859
+late_predictions: 21
+false_positives: 3299
+late_predictions: 38
+false_positives: 2702
+late_predictions: 18
+false_positives: 3001
+late_predictions: 19
+false_positives: 2329
+late_predictions: 20
+false_positives: 2905
+late_predictions: 19
+false_positives: 2082
+late_predictions: 20
