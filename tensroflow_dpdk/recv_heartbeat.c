@@ -61,17 +61,36 @@ send_to_ml_model(uint64_t* ts, mqd_t mq_desc, size_t input_size)
 	return 0;
 }
 
-int send_to_infer(uint64_t* ts, mqd_t mq_desc, int next_idx){
-	uint64_t send_buffer[LOOK_BACK];
+int send_to_infer(uint64_t* ts, mqd_t mq_desc, int next_idx, uint64_t pkt_cnt){
+	uint64_t send_buffer[LOOK_BACK + 1];
 	int i;
 	int offset = LOOK_BACK - 1;
 
+	struct mq_attr mq_attr;
+	mq_getattr(mq_desc, &mq_attr);
+	// printf("the max message size in bytes of the INFER mq is %ld\n", mq_attr.mq_msgsize);
+
+	// to match things up   
+	send_buffer[0] = pkt_cnt;
+	// printf("pktcnt: %lu\n", send_buffer[0]);
+	// for (int j = 0; j < HEARTBEAT_N; j++){
+	// 	printf("%d: %lu |", j, ts[j]);
+	// }
+	// printf("\n");
+	// printf("next idx: %d\n", next_idx);
+	// printf("lookback: %d, arr_size: %d\n", LOOK_BACK, ARR_SIZE);
+
 	for (i = LOOK_BACK; i > 0; i--){
-		int array_index = (next_idx - i - 1 - offset + ARR_SIZE) % ARR_SIZE;
+		int array_index = (next_idx - i + ARR_SIZE) % ARR_SIZE;
 		// printf("cloning the %d th element to infer send, with array idx %d\n", i, array_index);
-		send_buffer[LOOK_BACK-i] = ts[array_index];
+		send_buffer[LOOK_BACK-i + 1] = ts[array_index];
 	}
-	mq_send(mq_desc, (const char*)send_buffer, sizeof(send_buffer), 0);
+	int send_status = mq_send(mq_desc, (const char*)send_buffer, sizeof(send_buffer), 0);
+	if (send_status == -1) {
+        perror("mq_send");
+        fprintf(stderr, "Error: %s\n", strerror(errno));
+        exit(1);
+    }
 }
 
 
@@ -88,14 +107,22 @@ timer1_cb(struct rte_timer *tim, void *arg)
 	// rte_timer_reset(tim, rewired_amount, SINGLE, lcore_id, timer1_cb, (void *)rewired_amount);
 }
 
-uint64_t recv_prediction(mqd_t mq){
-	uint64_t received_data;
-    if (mq_receive(mq, (char *)&received_data, sizeof(uint64_t), NULL) == -1) {
+uint64_t recv_prediction(mqd_t mq, uint64_t expected_pkt_cnt){
+	char buffer[MAX_RECV_BUFFER_SIZE];
+	uint64_t match_pkt_cnt, prediction;
+    if (mq_receive(mq, buffer, MAX_RECV_BUFFER_SIZE, NULL) == -1) {
         perror("mq_receive");
         exit(1);
     }
-    printf("Received data: %lu\n", received_data);
-	return received_data;
+	size_t int_size = sizeof(uint64_t);
+	memcpy(&prediction, buffer, int_size);
+	memcpy(&match_pkt_cnt, buffer+int_size, int_size);
+    // printf("Received data: %lu, %lu\n", match_pkt_cnt, prediction);
+	if (match_pkt_cnt == expected_pkt_cnt){
+		return prediction;
+	} else {
+		return 0;
+	}
 }
 
 // int lcore_recv_heartbeat_pkt(struct lcore_params *p, struct fd_info * fdinfo, struct rte_timer * tim)
@@ -214,7 +241,7 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 						uint64_t receipt_time = rte_rdtsc();
 						fdinfo.evicted_time = fdinfo.arr_timestamp[fdinfo.next_evicted];
 
-						printf("storing the receipt time into index: %d\n", fdinfo.next_avail);
+						printf("storing the receipt time into index: %d, pkt_cnt: %ld, time: %ld\n", fdinfo.next_avail, pkt_cnt, receipt_time);
 
 						fdinfo.arr_timestamp[fdinfo.next_avail] = receipt_time;
 						
@@ -225,7 +252,7 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 							// send the data to the model for training
 							send_to_ml_model(fdinfo.arr_timestamp, send_mq, sizeof(fdinfo.arr_timestamp));
 						}
-						printf("ready to infer? %d\n", ready_to_infer);
+						// printf("ready to infer? %d\n", ready_to_infer);
 						if (!ready_to_infer){
 							// try to see if the model is ready for inference tasks
 							ssize_t bytes_received = mq_receive(control_mq, ready_to_infer_buffer, control_mq_attr.mq_msgsize , NULL);
@@ -240,7 +267,18 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 								printf("ready to send inference data\n");
 								printf("!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
 								ready_to_infer = 1;
-								send_to_infer(fdinfo.arr_timestamp, infer_data_mq, fdinfo.next_avail);
+								send_to_infer(fdinfo.arr_timestamp, infer_data_mq, fdinfo.next_avail, pkt_cnt);
+								next_arrival = recv_prediction(result_mq, pkt_cnt);
+								while (next_arrival == 0){
+									next_arrival = recv_prediction(result_mq, pkt_cnt);
+								}
+								uint64_t current_time = rte_rdtsc();
+								if (next_arrival < current_time){
+									printf("generate the prediction too late!!!\n");
+								} else {
+									printf("next_arrival: %ld, current time: %ld\n", next_arrival, current_time);
+									rte_timer_reset(tim, next_arrival - current_time, SINGLE, lcore_id, timer1_cb, (void *)(next_arrival - current_time));
+								}
 							} else if (bytes_received == -1){
 								perror("ctrl_message");
 							} else {
@@ -249,11 +287,14 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 						} else if (ready_to_infer){
 							// the inference model has been ready for a while
 							// send the last look_back amount of data to the model to do inference
-							printf("!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
-							printf("ready to infer\n");
-							printf("!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
-							send_to_infer(fdinfo.arr_timestamp, infer_data_mq, fdinfo.next_avail);
-							next_arrival = recv_prediction(result_mq);
+							// printf("!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
+							// printf("ready to infer\n");
+							// printf("!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
+							send_to_infer(fdinfo.arr_timestamp, infer_data_mq, fdinfo.next_avail, pkt_cnt);
+							next_arrival = recv_prediction(result_mq, pkt_cnt);
+							while (next_arrival == 0){
+								next_arrival = recv_prediction(result_mq, pkt_cnt);
+							}
 							uint64_t current_time = rte_rdtsc();
 							if (next_arrival < current_time){
 								printf("generate the prediction too late!!!\n");

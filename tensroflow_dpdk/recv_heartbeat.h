@@ -9,5 +9,6 @@
 #define CONTROL_MQ_NAME "/ctrl_msg"
 #define INFER_MQ_NAME   "/infer_data"
 #define RESULT_MQ_NAME  "/result_mq"
+#define MAX_RECV_BUFFER_SIZE (sizeof(uint64_t) * 2)
 
 int lcore_recv_heartbeat_pkt(struct recv_arg *);

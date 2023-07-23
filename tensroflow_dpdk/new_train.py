@@ -57,7 +57,7 @@ def inference(param_queue, infer_mq):
     # this mqueue is for transmitting the already predicted result
     result_mq_name = "/result_mq"
     queue_size = 100
-    message_size = ctypes.sizeof(ctypes.c_uint64)
+    message_size = ctypes.sizeof(ctypes.c_uint64) * 2
     result_mq = posix_ipc.MessageQueue(result_mq_name, flags = posix_ipc.O_CREAT, mode = 0o666, max_messages = queue_size, max_message_size = message_size)
     
     print("!!!!!!!!!!!!!!")
@@ -93,17 +93,19 @@ def inference(param_queue, infer_mq):
         except queue.Empty:
             pass
             # print("Queue is empty. No model parameters available.")
-        # Receive message from the queue
+        # Receive message from the queue    
         message, _ = infer_mq.receive()
         
         # Interpret the received message as an array of uint64_t
-        received_array = struct.unpack(f'{look_back}Q', message)
+        # plus one for matching request with response
+        received_array = struct.unpack(f'{look_back+1}Q', message)
         print("&&&&&&&&&&&&&&&&&&&&&&&&&&&")
         print(received_array)
         print("&&&&&&&&&&&&&&&&&&&&&&&&&&&")
         
-        # now making inference:
-        dataset = np.array(received_array)
+        # now making inference: exclude the first element, because it is for matching request with response
+        pkt_cnt_id = received_array[0]
+        dataset = np.array(received_array[1:])
         # dataset = dataset * 0.000001
         # print(dataset)
         
@@ -127,7 +129,7 @@ def inference(param_queue, infer_mq):
         next_arrival = int(next_arrival.item())
         
         # TODO send the result back to dpdk
-        packed_next_arrival_ts = struct.pack("Q", next_arrival)
+        packed_next_arrival_ts = struct.pack("QQ", next_arrival, pkt_cnt_id)
         result_mq.send(packed_next_arrival_ts)
         
     # get the lookback information from DPDK and do inference
@@ -233,7 +235,8 @@ if __name__ == "__main__":
     # create the inference queue that is used for the dpdk to transmit data for you to infer
     infer_mq_name = "/infer_data"
     queue_size = look_back
-    message_size = look_back * ctypes.sizeof(ctypes.c_uint64)
+    # plus one for matching infer request with response!
+    message_size = (look_back+1) * ctypes.sizeof(ctypes.c_uint64)
     
     infer_mq = posix_ipc.MessageQueue(infer_mq_name, flags = posix_ipc.O_CREAT, mode = 0o666, max_messages = queue_size, max_message_size = message_size)
     
