@@ -13,5 +13,5 @@
 
 int lcore_recv_heartbeat_pkt(struct recv_arg *);
 
-uint64_t false_positive_cnt;
-uint64_t late_prediction_cnt;
+FILE * comp_time_output;
+FILE * general_stats_output;

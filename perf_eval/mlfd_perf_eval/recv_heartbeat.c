@@ -3,6 +3,10 @@
 // global variable, the file descriptor of the mq that send the data to the model
 mqd_t send_mq;
 
+// for stats
+uint64_t false_positive_cnt = 0;
+uint64_t late_prediction_cnt = 0;
+
 void keyInteruptHandler(int signal) {
     if (signal == SIGINT) {
         // Close the message queue
@@ -99,7 +103,7 @@ timer1_cb(struct rte_timer *tim, void *arg)
 {
 	unsigned lcore_id = rte_lcore_id();
 
-
+	false_positive_cnt++;
 	// rewire the timer even for the suspected node
 	uint64_t rewired_amount = (uint64_t) arg;
 	printf("!!%lu!! suspected\n", rewired_amount);
@@ -128,6 +132,16 @@ uint64_t recv_prediction(mqd_t mq, uint64_t expected_pkt_cnt){
 // int lcore_recv_heartbeat_pkt(struct lcore_params *p, struct fd_info * fdinfo, struct rte_timer * tim)
 int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 {
+	// open the files for output of stats
+	comp_time_output = fopen("./output/computation_time.txt", "a");
+	if (comp_time_output == NULL) {
+		perror("CALC_TIME file open");
+	}
+	fprintf(comp_time_output, "*******************New Run*******************\n");
+
+	general_stats_output = fopen("./output/general_stats.txt", "a");
+	fprintf(general_stats_output, "*******************New Run*******************\n");
+
 	uint64_t next_arrival;
 	// need to make a translation between the number of cycles per second and the number of seconds of our EA
 	uint64_t hz = rte_get_timer_hz();
@@ -274,6 +288,8 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 								}
 								uint64_t current_time = rte_rdtsc();
 								if (next_arrival < current_time){
+									late_prediction_cnt++;
+									false_positive_cnt++;
 									printf("generate the prediction too late!!!\n");
 								} else {
 									printf("next_arrival: %ld, current time: %ld\n", next_arrival, current_time);
@@ -293,15 +309,27 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 							send_to_infer(fdinfo.arr_timestamp, infer_data_mq, fdinfo.next_avail, pkt_cnt);
 							next_arrival = recv_prediction(result_mq, pkt_cnt);
 							while (next_arrival == 0){
+								// this indicates that the response does not match with request
 								next_arrival = recv_prediction(result_mq, pkt_cnt);
 							}
 							uint64_t current_time = rte_rdtsc();
+							fprintf(comp_time_output, "%lu\n", current_time - receipt_time);
 							if (next_arrival < current_time){
+								late_prediction_cnt++;
+								false_positive_cnt++;
 								printf("generate the prediction too late!!!\n");
 							} else {
 								printf("next_arrival: %ld, current time: %ld\n", next_arrival, current_time);
 								rte_timer_reset(tim, next_arrival - current_time, SINGLE, lcore_id, timer1_cb, (void *)(next_arrival - current_time));
 							}
+						}
+						// write the stats every 10000 heartbeats
+						if (pkt_cnt % 10000 == 0){
+							fprintf(general_stats_output, "false_positives: %lu\n", false_positive_cnt);
+							fprintf(general_stats_output, "late_predictions: %lu\n", late_prediction_cnt);
+							fflush(general_stats_output);
+							false_positive_cnt = 0;
+							late_prediction_cnt = 0;
 						}
 					}
 				}
