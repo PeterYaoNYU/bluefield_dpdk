@@ -4,6 +4,8 @@
 mqd_t send_mq;
 
 // for stats
+FILE * comp_time_output;
+FILE * general_stats_output;
 uint64_t false_positive_cnt = 0;
 uint64_t late_prediction_cnt = 0;
 

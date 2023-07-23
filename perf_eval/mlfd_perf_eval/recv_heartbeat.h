@@ -13,5 +13,3 @@
 
 int lcore_recv_heartbeat_pkt(struct recv_arg *);
 
-FILE * comp_time_output;
-FILE * general_stats_output;

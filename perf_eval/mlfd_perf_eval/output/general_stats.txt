@@ -15,3 +15,14 @@ false_positives: 2905
 late_predictions: 19
 false_positives: 2082
 late_predictions: 20
+*******************New Run*******************
+false_positives: 2665
+late_predictions: 92
+false_positives: 3677
+late_predictions: 21
+false_positives: 3312
+late_predictions: 22
+false_positives: 2059
+late_predictions: 18
+false_positives: 1523
+late_predictions: 19

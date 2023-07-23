@@ -8,10 +8,10 @@ from tensorflow import keras
 from keras.models import Sequential
 from keras.layers import Dense
 from keras.layers import LSTM
-from sklearn.preprocessing import MinMaxScaler
-from sklearn.metrics import mean_squared_error
+# from sklearn.preprocessing import MinMaxScaler
+# from sklearn.metrics import mean_squared_error
 import math
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 import keras.backend as K
 
 import posix_ipc
