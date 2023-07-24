@@ -113,27 +113,55 @@ timer1_cb(struct rte_timer *tim, void *arg)
 	// rte_timer_reset(tim, rewired_amount, SINGLE, lcore_id, timer1_cb, (void *)rewired_amount);
 }
 
-uint64_t recv_prediction(mqd_t mq, uint64_t expected_pkt_cnt){
+// return -1: timeout or function call failure
+// return 0; success
+// return -2: keep trying, received previous result
+// return -3: stop trying, received future result (can this happen?)
+int recv_prediction(mqd_t mq, uint64_t expected_pkt_cnt, uint64_t *prediction){
+	struct timespec timeout;
+	timeout.tv_sec = 3;
+	timeout.tv_nsec = 0;
 	char buffer[MAX_RECV_BUFFER_SIZE];
-	uint64_t match_pkt_cnt, prediction;
-    if (mq_receive(mq, buffer, MAX_RECV_BUFFER_SIZE, NULL) == -1) {
-        perror("mq_receive");
-        exit(1);
-    }
+	uint64_t match_pkt_cnt;
+	ssize_t received_bytes = mq_timedreceive(mq, buffer, MAX_RECV_BUFFER_SIZE, NULL, &timeout);
+	if (received_bytes == -1) {
+		if (errno == ETIMEDOUT) {
+			// timed out, no message available
+			// return -1, indicating that the prediction is not received
+			printf("too late\n");
+			return -1;
+		} else {
+			perror("mq_timedreceive");
+			return -1;
+		}
+	}
 	size_t int_size = sizeof(uint64_t);
-	memcpy(&prediction, buffer, int_size);
+	memcpy(prediction, buffer, int_size);
 	memcpy(&match_pkt_cnt, buffer+int_size, int_size);
     // printf("Received data: %lu, %lu\n", match_pkt_cnt, prediction);
+
+	while (match_pkt_cnt < expected_pkt_cnt){
+		// keep receiving until the prediction matches the request
+		received_bytes = mq_receive(mq, buffer, MAX_RECV_BUFFER_SIZE, NULL);
+		memcpy(prediction, buffer, int_size);
+		memcpy(&match_pkt_cnt, buffer+int_size, int_size);
+		// printf("Received data: %lu, %lu\n", match_pkt_cnt, prediction);
+	}
+
 	if (match_pkt_cnt == expected_pkt_cnt){
-		return prediction;
-	} else {
+		// on success return 0;
+		printf("recv ok\n");
 		return 0;
+	} else {
+		printf("shit happens\n");
+		return -3;
 	}
 }
 
 // int lcore_recv_heartbeat_pkt(struct lcore_params *p, struct fd_info * fdinfo, struct rte_timer * tim)
 int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 {
+	int ret_val = 0;
 	// open the files for output of stats
 	comp_time_output = fopen("./output/computation_time.txt", "a");
 	if (comp_time_output == NULL) {
@@ -296,20 +324,22 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 							// printf("ready to infer\n");
 							// printf("!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
 							send_to_infer(fdinfo.arr_timestamp, infer_data_mq, fdinfo.next_avail, pkt_cnt);
-							next_arrival = recv_prediction(result_mq, pkt_cnt);
-							while (next_arrival == 0){
+							ret_val = recv_prediction(result_mq, pkt_cnt, &next_arrival);
+							while (ret_val == -2){
 								// this indicates that the response does not match with request
-								next_arrival = recv_prediction(result_mq, pkt_cnt);
+								ret_val = recv_prediction(result_mq, pkt_cnt, &next_arrival);
 							}
-							uint64_t current_time = rte_rdtsc();
-							fprintf(comp_time_output, "%lu\n", current_time - receipt_time);
-							if (next_arrival < current_time){
-								late_prediction_cnt++;
-								false_positive_cnt++;
-								printf("generate the prediction too late!!!\n");
-							} else {
-								printf("next_arrival: %ld, current time: %ld\n", next_arrival, current_time);
-								rte_timer_reset(tim, next_arrival - current_time, SINGLE, lcore_id, timer1_cb, (void *)(next_arrival - current_time));
+							if (ret_val == 0){
+								uint64_t current_time = rte_rdtsc();
+								fprintf(comp_time_output, "%lu\n", current_time - receipt_time);
+								if (next_arrival < current_time){
+									late_prediction_cnt++;
+									false_positive_cnt++;
+									printf("generate the prediction too late!!!\n");
+								} else {
+									printf("next_arrival: %ld, current time: %ld\n", next_arrival, current_time);
+									rte_timer_reset(tim, next_arrival - current_time, SINGLE, lcore_id, timer1_cb, (void *)(next_arrival - current_time));
+								}
 							}
 						}
 						// write the stats every 10000 heartbeats
