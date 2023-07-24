@@ -113,27 +113,57 @@ timer1_cb(struct rte_timer *tim, void *arg)
 	// rte_timer_reset(tim, rewired_amount, SINGLE, lcore_id, timer1_cb, (void *)rewired_amount);
 }
 
-uint64_t recv_prediction(mqd_t mq, uint64_t expected_pkt_cnt){
+
+// calls the mq_time_receive function to receive the prediction result from the inference model ONCE
+// return -1 if the mq_receive times out
+// return 0 if the mq_receive is successful
+// return -2 if the received data does not match the expected data
+int recv_prediction(mqd_t mq, uint64_t expected_pkt_cnt, uint64_t * prediction, struct timespec * timeout){
 	char buffer[MAX_RECV_BUFFER_SIZE];
-	uint64_t match_pkt_cnt, prediction;
-    if (mq_receive(mq, buffer, MAX_RECV_BUFFER_SIZE, NULL) == -1) {
-        perror("mq_receive");
-        exit(1);
-    }
+	uint64_t match_pkt_cnt;
+	// switch from mq_receive to mq_timedreceive
+	// if we do not receive the message in a certain amount of time, we will break away from the reception
+	// and continue with the rest of the program
+	// so that later inference will not be disrupted
+	printf("timeout is %ld\n", timeout->tv_nsec);
+	if (mq_timedreceive(mq, buffer, MAX_RECV_BUFFER_SIZE, NULL, timeout) == -1) {
+		if (errno == ETIMEDOUT) {
+            // Timeout occurred
+			printf("Recv the prediction too late!!!\n");
+			late_prediction_cnt++;
+			return -1;
+        } else {
+            perror("mq_timedreceive");
+			return -1;
+        }
+	}
+	printf("received prediction\n");
 	size_t int_size = sizeof(uint64_t);
-	memcpy(&prediction, buffer, int_size);
+	memcpy(prediction, buffer, int_size);
 	memcpy(&match_pkt_cnt, buffer+int_size, int_size);
     // printf("Received data: %lu, %lu\n", match_pkt_cnt, prediction);
 	if (match_pkt_cnt == expected_pkt_cnt){
-		return prediction;
-	} else {
+		printf("prediction matches\n");
 		return 0;
+	} else if (match_pkt_cnt > expected_pkt_cnt){
+		printf("messed up message queue\n");
+		return -1;
+	} else {
+		printf("NOT MATCHING!!! %ld, expected: %ld\n", match_pkt_cnt, expected_pkt_cnt);
+		return -2;
 	}
 }
 
 // int lcore_recv_heartbeat_pkt(struct lcore_params *p, struct fd_info * fdinfo, struct rte_timer * tim)
 int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 {
+	// the timeout for message queue reception
+	// break away from the reception in case the result hasn't arrived in a long time
+	// so that it will not interfere with later inference, and cause serial late inference
+	struct timespec timeout;
+	timeout.tv_sec = 0;
+	timeout.tv_nsec = 200000000;
+
 	// open the files for output of stats
 	comp_time_output = fopen("./output/computation_time.txt", "a");
 	if (comp_time_output == NULL) {
@@ -145,6 +175,7 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 	fprintf(general_stats_output, "*******************New Run*******************\n");
 
 	uint64_t next_arrival;
+	int ret_val;
 	// need to make a translation between the number of cycles per second and the number of seconds of our EA
 	uint64_t hz = rte_get_timer_hz();
 	printf("the hz is %lu\n", hz);
@@ -283,46 +314,31 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 								printf("ready to send inference data\n");
 								printf("!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
 								ready_to_infer = 1;
-								send_to_infer(fdinfo.arr_timestamp, infer_data_mq, fdinfo.next_avail, pkt_cnt);
-								next_arrival = recv_prediction(result_mq, pkt_cnt);
-								while (next_arrival == 0){
-									next_arrival = recv_prediction(result_mq, pkt_cnt);
-								}
-								uint64_t current_time = rte_rdtsc();
-								if (next_arrival < current_time){
-									late_prediction_cnt++;
-									false_positive_cnt++;
-									printf("generate the prediction too late!!!\n");
-								} else {
-									printf("next_arrival: %ld, current time: %ld\n", next_arrival, current_time);
-									rte_timer_reset(tim, next_arrival - current_time, SINGLE, lcore_id, timer1_cb, (void *)(next_arrival - current_time));
-								}
 							} else if (bytes_received == -1){
 								perror("ctrl_message");
 							} else {
 								printf("not receiving the ctrl message yet\n");
 							}
-						} else if (ready_to_infer){
+						} 
+						if (ready_to_infer){
 							// the inference model has been ready for a while
 							// send the last look_back amount of data to the model to do inference
-							// printf("!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
-							// printf("ready to infer\n");
-							// printf("!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
 							send_to_infer(fdinfo.arr_timestamp, infer_data_mq, fdinfo.next_avail, pkt_cnt);
-							next_arrival = recv_prediction(result_mq, pkt_cnt);
-							while (next_arrival == 0){
-								// this indicates that the response does not match with request
-								next_arrival = recv_prediction(result_mq, pkt_cnt);
+							ret_val = recv_prediction(result_mq, pkt_cnt, &next_arrival, &timeout);
+							while (ret_val == -2){
+								ret_val = recv_prediction(result_mq, pkt_cnt, &next_arrival, &timeout);
 							}
-							uint64_t current_time = rte_rdtsc();
-							fprintf(comp_time_output, "%lu\n", current_time - receipt_time);
-							if (next_arrival < current_time){
-								late_prediction_cnt++;
-								false_positive_cnt++;
-								printf("generate the prediction too late!!!\n");
-							} else {
-								printf("next_arrival: %ld, current time: %ld\n", next_arrival, current_time);
-								rte_timer_reset(tim, next_arrival - current_time, SINGLE, lcore_id, timer1_cb, (void *)(next_arrival - current_time));
+							if (ret_val == 0) {
+								uint64_t current_time = rte_rdtsc();
+								fprintf(comp_time_output, "%lu\n", current_time - receipt_time);
+								if (next_arrival < current_time){
+									late_prediction_cnt++;
+									false_positive_cnt++;
+									printf("Making the prediction too late!!!\n");
+								} else {
+									printf("next_arrival: %ld, current time: %ld\n", next_arrival, current_time);
+									rte_timer_reset(tim, next_arrival - current_time, SINGLE, lcore_id, timer1_cb, (void *)(next_arrival - current_time));
+								}
 							}
 						}
 						// write the stats every 10000 heartbeats

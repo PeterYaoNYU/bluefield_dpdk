@@ -4,6 +4,7 @@
 #include <sys/stat.h>
 #include <mqueue.h>
 #include <signal.h>
+#include <time.h>
 
 #define QUEUE_NAME      "/train_data"
 #define CONTROL_MQ_NAME "/ctrl_msg"
