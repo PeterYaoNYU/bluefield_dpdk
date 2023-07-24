@@ -283,26 +283,13 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 								printf("ready to send inference data\n");
 								printf("!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
 								ready_to_infer = 1;
-								send_to_infer(fdinfo.arr_timestamp, infer_data_mq, fdinfo.next_avail, pkt_cnt);
-								next_arrival = recv_prediction(result_mq, pkt_cnt);
-								while (next_arrival == 0){
-									next_arrival = recv_prediction(result_mq, pkt_cnt);
-								}
-								uint64_t current_time = rte_rdtsc();
-								if (next_arrival < current_time){
-									late_prediction_cnt++;
-									false_positive_cnt++;
-									printf("generate the prediction too late!!!\n");
-								} else {
-									printf("next_arrival: %ld, current time: %ld\n", next_arrival, current_time);
-									rte_timer_reset(tim, next_arrival - current_time, SINGLE, lcore_id, timer1_cb, (void *)(next_arrival - current_time));
-								}
 							} else if (bytes_received == -1){
 								perror("ctrl_message");
 							} else {
 								printf("not receiving the ctrl message yet\n");
 							}
-						} else if (ready_to_infer){
+						}
+						if (ready_to_infer){
 							// the inference model has been ready for a while
 							// send the last look_back amount of data to the model to do inference
 							// printf("!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
