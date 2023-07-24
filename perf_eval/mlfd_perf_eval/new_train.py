@@ -13,6 +13,7 @@ from keras.layers import LSTM
 import math
 # import matplotlib.pyplot as plt
 import keras.backend as K
+
 import posix_ipc
 import ctypes
 import struct
