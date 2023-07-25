@@ -134,6 +134,8 @@ uint64_t recv_prediction(mqd_t mq, uint64_t expected_pkt_cnt){
 // int lcore_recv_heartbeat_pkt(struct lcore_params *p, struct fd_info * fdinfo, struct rte_timer * tim)
 int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 {
+	uint64_t errors[ERROR_CONSIDERED];
+
 	// open the files for output of stats
 	comp_time_output = fopen("./output/computation_time.txt", "a");
 	if (comp_time_output == NULL) {
@@ -260,14 +262,16 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 						printf("storing the receipt time into index: %d, pkt_cnt: %ld, time: %ld\n", fdinfo.next_avail, pkt_cnt, receipt_time);
 
 						fdinfo.arr_timestamp[fdinfo.next_avail] = receipt_time;
+
+						send_to_ml_model(fdinfo.arr_timestamp+fdinfo.next_avail, send_mq, sizeof(fdinfo.arr_timestamp[fdinfo.next_avail]));
 						
 						// increment the next_avail variable 
 						fdinfo.next_avail = (fdinfo.next_avail + 1) % 200;
 
-						if (pkt_cnt % HEARTBEAT_N == 0){
-							// send the data to the model for training
-							send_to_ml_model(fdinfo.arr_timestamp, send_mq, sizeof(fdinfo.arr_timestamp));
-						}
+						// if (pkt_cnt % HEARTBEAT_N == 0){
+						// 	// send the data to the model for training
+						// 	send_to_ml_model(fdinfo.arr_timestamp, send_mq, sizeof(fdinfo.arr_timestamp));
+						// }
 						// printf("ready to infer? %d\n", ready_to_infer);
 						if (!ready_to_infer){
 							// try to see if the model is ready for inference tasks

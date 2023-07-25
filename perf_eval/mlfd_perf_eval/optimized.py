@@ -147,7 +147,7 @@ def data_preprocess(all_data):
 def train(param_queue):
     look_back = 50
     
-    ARR_SIZE = 200
+    ARR_SIZE = 1
     
     # for debugging the message queue
     # test_mq_name = "/test_msg"
@@ -159,11 +159,13 @@ def train(param_queue):
     
     train_data_count = 0
     first_train = True
+    fine_tune_ready = False
     all_data = []
+    fine_tune_count = 0
 
     train_mq_name = "/train_data"
     queue_size = 300
-    message_size = ctypes.sizeof(ctypes.c_uint64) * queue_size
+    message_size = ctypes.sizeof(ctypes.c_uint64)
     train_mq = posix_ipc.MessageQueue(train_mq_name, flags = posix_ipc.O_CREAT, mode = 0o666, max_messages = queue_size, max_message_size = message_size)
     print("ok")
      
@@ -171,16 +173,22 @@ def train(param_queue):
         if (first_train):
             while (train_data_count < 200):
                 message, _ = train_mq.receive()
-                received_array = struct.unpack(f'{ARR_SIZE}Q', message)
-                all_data = all_data + list(received_array)
-                train_data_count = train_data_count + len(received_array)
-                print("length: ", len(received_array))
+                received_number = struct.unpack(f'{ARR_SIZE}Q', message)
+                all_data.append(received_number[0])
+                train_data_count = train_data_count + ARR_SIZE
+                print("length: ", len(all_data))
                 print(all_data)
             # first_train = False
         else:
             # Receive message from the queue
-            message, _ = train_mq.receive()
-            all_data = struct.unpack(f'{ARR_SIZE}Q', message)
+            while (fine_tune_count < 200):
+                message, _ = train_mq.receive()
+                print("get train data")
+                received_number = struct.unpack(f'{ARR_SIZE}Q', message)
+                all_data.append(received_number[0])
+                fine_tune_count = fine_tune_count + 1
+                if (fine_tune_count == 200):
+                    fine_tune_ready = True
                 
         # # troubleshoot
         # print(len(message))   # Print the length of the message buffer
@@ -199,7 +207,7 @@ def train(param_queue):
             model = Sequential()
             model.add(LSTM(4, input_shape=(1, look_back)))
             model.add(Dense(1))
-            model.compile(loss='mean_squared_error', optimizer='adam', metrics=['accuracy'])
+            model.compile(loss=custom_loss, optimizer='adam', metrics=['accuracy'])
             model.fit(trainX, trainY, epochs=10, batch_size=1, verbose=2)
         
         # because python does not support parallel execution on multicores for threads
@@ -212,14 +220,18 @@ def train(param_queue):
         # Get the model parameters
             model_params = model.get_weights()    
             param_queue.put(model_params)
-            first_train = False    
-        else:
-            all_data = np.array(all_data)
-            all_data = all_data.reshape(-1, 1)
-            trainX, trainY= data_preprocess(all_data)
+            first_train = False  
+            all_data = []  
+        elif (fine_tune_ready):
+            dataset = np.array(all_data)
+            dataset = all_data.reshape(-1, 1)
+            trainX, trainY= data_preprocess(dataset)
             model.fit(trainX, trainY, epochs=5, batch_size=1, verbose=2)
             model_params = model.get_weights()    
             param_queue.put(model_params)
+            fine_tune_ready = False
+            fine_tune_count = 0
+            all_data = []
     
     # do the clean up of the resources that we have opened
     mq.close()
