@@ -313,7 +313,7 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 							}
 						}
 						// write the stats every 10000 heartbeats
-						if (pkt_cnt % 10000 == 0){
+						if (pkt_cnt % 1000 == 0){
 							fprintf(general_stats_output, "false_positives: %lu\n", false_positive_cnt);
 							fprintf(general_stats_output, "late_predictions: %lu\n", late_prediction_cnt);
 							fflush(general_stats_output);

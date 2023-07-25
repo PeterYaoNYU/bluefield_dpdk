@@ -1,5 +1,7 @@
 #include "recv_heartbeat.h"
 
+FILE * general_stats_output;
+uint64_t false_positive_cnt = 0;
 
 static void
 timer1_cb(struct rte_timer *tim, void *arg)
@@ -11,6 +13,8 @@ timer1_cb(struct rte_timer *tim, void *arg)
 	// rewire the timer even for the suspected node
 	uint64_t rewired_amount = (uint64_t) arg;
 
+	false_positive_cnt++;
+
 	RTE_LOG(INFO, FD_OUTPUT, "!!%lu!! suspected\n", rewired_amount);
 	RTE_LOG(INFO, FD_OUTPUT, "Suspected Time: %lu\n", suspected_time);
 
@@ -20,6 +24,13 @@ timer1_cb(struct rte_timer *tim, void *arg)
 // int lcore_recv_heartbeat_pkt(struct lcore_params *p, struct fd_info * fdinfo, struct rte_timer * tim)
 int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 {
+		
+	general_stats_output = fopen("./output/general_stats.txt", "a");
+	if (general_stats_output == NULL){
+		perror("General Stats File Fail to Open");
+	}
+	fprintf(general_stats_output, "*******************New Run*******************\n");
+
 	// need to make a translation between the number of cycles per second and the number of seconds of our EA
 	uint64_t hz_per_sec = rte_get_timer_hz();
 	RTE_LOG(INFO, SYS_INFO, "the hz is %lu\n", hz_per_sec);
@@ -156,6 +167,12 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 							for (int i = 0; i < ARR_SIZE; i++){
 								RTE_LOG(DEBUG, DEFAULT_DEBUG, "%lu: %lu | \n", fdinfo.arr_timestamp[i].heartbeat_id, fdinfo.arr_timestamp[i].hb_timestamp);
 							}
+						}
+
+						if (pkt_cnt % 1000 == 0){
+							fprintf(general_stats_output, "false_positives: %lu\n", false_positive_cnt);
+							fflush(general_stats_output);
+							false_positive_cnt = 0;
 						}
 					}
 				}
