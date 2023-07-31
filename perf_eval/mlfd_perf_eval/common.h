@@ -44,6 +44,8 @@
 #define BURST_SIZE 32
 #define BURST_SIZE_TX 1
 
+// #define ERROR_CONSIDERED 20
+
 // how many past packets you want to keep track of
 #define HEARTBEAT_N 200
 

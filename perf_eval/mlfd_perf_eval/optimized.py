@@ -21,6 +21,22 @@ import struct
 import multiprocessing
 import queue
 
+def tf_custom_loss(y_true, y_pred):
+    # Define a penalty factor for negative predictions
+    penalty_factor = 1000000
+
+    # Calculate the squared error between true and predicted values
+    squared_error = tf.square(y_true - y_pred)
+
+    # Apply the penalty factor to negative predictions using tf.where
+    penalized_error = tf.where(y_pred < 0, squared_error * penalty_factor, squared_error)
+
+    # Calculate the mean of the penalized errors
+    loss = tf.reduce_mean(penalized_error)
+    
+    return loss 
+
+
 def custom_loss(y_true, y_pred):
     # Calculate the squared error between true and predicted values
     squared_error = K.square(y_true - y_pred)  
@@ -54,6 +70,8 @@ def inference(param_queue, infer_mq):
     ctrl_mq = posix_ipc.MessageQueue(control_mq_name, flags = posix_ipc.O_CREAT, mode = 0o666, max_messages = queue_size, max_message_size = message_size)
     look_back = 50
     
+    all_data = []
+    
     # this mqueue is for transmitting the already predicted result
     result_mq_name = "/result_mq"
     queue_size = 100
@@ -65,7 +83,9 @@ def inference(param_queue, infer_mq):
     print("!!!!!!!!!!!!!!")
     # retrieve the parameters of the model from the message queue
     # the first time the child proces starts, have to sync to wait for the params to be available
-    model_params = param_queue.get(block = True)
+    # model_params = param_queue.get(block = True)
+    
+    model_params_ready = False
     
     # create a LSTM model with the same structure
     infer_model = Sequential()
@@ -73,16 +93,13 @@ def inference(param_queue, infer_mq):
     infer_model.add(Dense(1))
     
     # apply the weights trained   
-    infer_model.set_weights(model_params)
-    print("!!!!!!!!!!!!!!")
-    print("inference proc ready!!!")
-    print("!!!!!!!!!!!!!!")
+    # infer_model.set_weights(model_params)
     
     # tell the DPDK process that I am ready for doing inference...
     # TO-DO
     # send 1 to DPDK to indicate that I am ready to do inference
-    number = 1
-    ctrl_mq.send(number.to_bytes(4, byteorder='little'))
+    # number = 1
+    # ctrl_mq.send(number.to_bytes(4, byteorder='little'))
     
     while(True):
         model_params = None
@@ -90,6 +107,13 @@ def inference(param_queue, infer_mq):
             model_params = param_queue.get(block = False)
             if (model_params):
                 infer_model.set_weights(model_params)
+                if not model_params_ready:
+                    print("!!!!!!!!!!!!!!")
+                    print("inference proc ready!!!")
+                    print("!!!!!!!!!!!!!!")
+                    number = 1
+                    ctrl_mq.send(number.to_bytes(4, byteorder='little'))
+                    model_params_ready = True
         except queue.Empty:
             pass
             # print("Queue is empty. No model parameters available.")
@@ -98,39 +122,43 @@ def inference(param_queue, infer_mq):
         
         # Interpret the received message as an array of uint64_t
         # plus one for matching request with response
-        received_array = struct.unpack(f'{look_back+1}Q', message)
+        received_array = struct.unpack(f'{2}Q', message)
         print("&&&&&&&&&&&&&&&&&&&&&&&&&&&")
         print(received_array)
         print("&&&&&&&&&&&&&&&&&&&&&&&&&&&")
         
         # now making inference: exclude the first element, because it is for matching request with response
         pkt_cnt_id = received_array[0]
-        dataset = np.array(received_array[1:])
-        # dataset = dataset * 0.000001
-        # print(dataset)
         
-        start = dataset[0]
-        end = dataset[-1]
-        interval = end - start
+        all_data.append(received_array[1])
+        if len(all_data) > look_back:
+            all_data.pop(0)
+            dataset = np.array(all_data)
+            # dataset = dataset * 0.000001
+            # print(dataset)
+            
+            start = dataset[0]
+            end = dataset[-1]
+            interval = end - start
+            
+            dataset = (dataset - start)/(end - start)
+            
+            dataset = np.reshape(dataset, (1, 1, dataset.shape[0]))
+            # print("after reshaping: ", dataset.shape)
         
-        dataset = (dataset - start)/(end - start)
-        
-        dataset = np.reshape(dataset, (1, 1, dataset.shape[0]))
-        # print("after reshaping: ", dataset.shape)
-    
-        # make predictions
-        next_arrival = infer_model.predict(dataset)
-        print("next arrival (before scaling back): ", next_arrival)
-        
-        # invert predictions
-        next_arrival = next_arrival * (end - start) + start
-        
-        print("next arrival (after scaling back): ", next_arrival[0][0])
-        next_arrival = int(next_arrival.item())
-        
-        # TODO send the result back to dpdk
-        packed_next_arrival_ts = struct.pack("QQ", next_arrival, pkt_cnt_id)
-        result_mq.send(packed_next_arrival_ts)
+            # make predictions
+            next_arrival = infer_model.predict(dataset)
+            print("next arrival (before scaling back): ", next_arrival)
+            
+            # invert predictions
+            next_arrival = next_arrival * (end - start) + start
+            
+            print("next arrival (after scaling back): ", next_arrival[0][0])
+            next_arrival = int(next_arrival.item())
+            
+            # TODO send the result back to dpdk
+            packed_next_arrival_ts = struct.pack("QQ", next_arrival, pkt_cnt_id)
+            result_mq.send(packed_next_arrival_ts)
         
     # get the lookback information from DPDK and do inference
     # then send the result back to DPDK
@@ -248,7 +276,7 @@ if __name__ == "__main__":
     infer_mq_name = "/infer_data"
     queue_size = look_back
     # plus one for matching infer request with response!
-    message_size = (look_back+1) * ctypes.sizeof(ctypes.c_uint64)
+    message_size = 2 * ctypes.sizeof(ctypes.c_uint64)
     
     infer_mq = posix_ipc.MessageQueue(infer_mq_name, flags = posix_ipc.O_CREAT, mode = 0o666, max_messages = queue_size, max_message_size = message_size)
     

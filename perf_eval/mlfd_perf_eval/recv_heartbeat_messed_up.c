@@ -71,13 +71,13 @@ send_to_ml_model(uint64_t* ts, mqd_t mq_desc, size_t input_size)
 	return 0;
 }
 
-int send_to_infer(uint64_t* ts, mqd_t mq_desc, int next_idx, uint64_t pkt_cnt){
-	uint64_t send_buffer[LOOK_BACK + 1];
-	int i;
-	int offset = LOOK_BACK - 1;
+int send_to_infer(uint64_t* ts, mqd_t mq_desc, int idx, uint64_t pkt_cnt){
+	uint64_t send_buffer[2];
+	// int i;
+	// int offset = LOOK_BACK - 1;
 
-	struct mq_attr mq_attr;
-	mq_getattr(mq_desc, &mq_attr);
+	// struct mq_attr mq_attr;
+	// mq_getattr(mq_desc, &mq_attr);
 	// printf("the max message size in bytes of the INFER mq is %ld\n", mq_attr.mq_msgsize);
 
 	// to match things up   
@@ -90,11 +90,13 @@ int send_to_infer(uint64_t* ts, mqd_t mq_desc, int next_idx, uint64_t pkt_cnt){
 	// printf("next idx: %d\n", next_idx);
 	// printf("lookback: %d, arr_size: %d\n", LOOK_BACK, ARR_SIZE);
 
-	for (i = LOOK_BACK; i > 0; i--){
-		int array_index = (next_idx - i + ARR_SIZE) % ARR_SIZE;
-		// printf("cloning the %d th element to infer send, with array idx %d\n", i, array_index);
-		send_buffer[LOOK_BACK-i + 1] = ts[array_index];
-	}
+	// for (i = LOOK_BACK; i > 0; i--){
+	// 	int array_index = (next_idx - i + ARR_SIZE) % ARR_SIZE;
+	// 	// printf("cloning the %d th element to infer send, with array idx %d\n", i, array_index);
+	// 	send_buffer[LOOK_BACK-i + 1] = ts[array_index];
+	// }
+
+	send_buffer[1] = ts[idx];
 	int send_status = mq_send(mq_desc, (const char*)send_buffer, sizeof(send_buffer), 0);
 	if (send_status == -1) {
         perror("mq_send");
@@ -113,11 +115,9 @@ timer1_cb(struct rte_timer *tim, void *arg)
 	// rewire the timer even for the suspected node
 	uint64_t rewired_amount = (uint64_t) arg;
 	printf("!!%lu!! suspected\n", rewired_amount);
-
 	error_sum = error_sum - errors[error_idx] + rewired_amount;
 	errors[error_idx] = rewired_amount;
 	error_idx = (error_idx + 1) % ERROR_CONSIDERED;
-	printf("wired amount: %lu, the safety margin now is %lu\n", rewired_amount, error_sum/ERROR_CONSIDERED);
 
 	// rte_timer_reset(tim, rewired_amount, SINGLE, lcore_id, timer1_cb, (void *)rewired_amount);
 }
@@ -152,7 +152,6 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 
 	general_stats_output = fopen("./output/general_stats.txt", "a");
 	fprintf(general_stats_output, "*******************New Run*******************\n");
-
 
 	uint64_t next_arrival;
 	// need to make a translation between the number of cycles per second and the number of seconds of our EA
@@ -270,14 +269,17 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 						printf("storing the receipt time into index: %d, pkt_cnt: %ld, time: %ld\n", fdinfo.next_avail, pkt_cnt, receipt_time);
 
 						fdinfo.arr_timestamp[fdinfo.next_avail] = receipt_time;
+
+						send_to_ml_model(fdinfo.arr_timestamp+fdinfo.next_avail, send_mq, sizeof(fdinfo.arr_timestamp[fdinfo.next_avail]));
+						send_to_infer(fdinfo.arr_timestamp, infer_data_mq, fdinfo.next_avail, pkt_cnt);
 						
 						// increment the next_avail variable 
 						fdinfo.next_avail = (fdinfo.next_avail + 1) % 200;
 
-						if (pkt_cnt % HEARTBEAT_N == 0){
-							// send the data to the model for training
-							send_to_ml_model(fdinfo.arr_timestamp, send_mq, sizeof(fdinfo.arr_timestamp));
-						}
+						// if (pkt_cnt % HEARTBEAT_N == 0){
+						// 	// send the data to the model for training
+						// 	send_to_ml_model(fdinfo.arr_timestamp, send_mq, sizeof(fdinfo.arr_timestamp));
+						// }
 						// printf("ready to infer? %d\n", ready_to_infer);
 						if (!ready_to_infer){
 							// try to see if the model is ready for inference tasks
@@ -293,43 +295,32 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 								printf("ready to send inference data\n");
 								printf("!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
 								ready_to_infer = 1;
-								send_to_infer(fdinfo.arr_timestamp, infer_data_mq, fdinfo.next_avail, pkt_cnt);
-								next_arrival = recv_prediction(result_mq, pkt_cnt);
-								while (next_arrival == 0){
-									next_arrival = recv_prediction(result_mq, pkt_cnt);
-								}
-								uint64_t current_time = rte_rdtsc();
-								fprintf(comp_time_output, "%lu\n", current_time - receipt_time);
-								if (next_arrival < current_time){
-									late_prediction_cnt++;
-									false_positive_cnt++;
-									printf("generate the prediction too late!!!\n");
-								} else {
-									printf("next_arrival: %ld, current time: %ld\n", next_arrival, current_time);
-									rte_timer_reset(tim, next_arrival - current_time + error_sum/ERROR_CONSIDERED, SINGLE, lcore_id, timer1_cb, (void *)(next_arrival - current_time));
-								}
 							} else if (bytes_received == -1){
 								perror("ctrl_message");
 							} else {
 								printf("not receiving the ctrl message yet\n");
 							}
-						} else if (ready_to_infer){
+						}
+						if (ready_to_infer){
 							// the inference model has been ready for a while
 							// send the last look_back amount of data to the model to do inference
 							// printf("!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
 							// printf("ready to infer\n");
 							// printf("!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
-							send_to_infer(fdinfo.arr_timestamp, infer_data_mq, fdinfo.next_avail, pkt_cnt);
 							next_arrival = recv_prediction(result_mq, pkt_cnt);
 							while (next_arrival == 0){
+								// this indicates that the response does not match with request
 								next_arrival = recv_prediction(result_mq, pkt_cnt);
 							}
 							uint64_t current_time = rte_rdtsc();
+							fprintf(comp_time_output, "%lu\n", current_time - receipt_time);
 							if (next_arrival < current_time){
+								late_prediction_cnt++;
+								false_positive_cnt++;
 								printf("generate the prediction too late!!!\n");
 							} else {
 								printf("next_arrival: %ld, current time: %ld\n", next_arrival, current_time);
-								rte_timer_reset(tim, next_arrival - current_time, SINGLE, lcore_id, timer1_cb, (void *)(next_arrival - current_time));
+								rte_timer_reset(tim, next_arrival - current_time + error_sum/ERROR_CONSIDERED, SINGLE, lcore_id, timer1_cb, (void *)(next_arrival - current_time));
 							}
 						}
 						// write the stats every 10000 heartbeats

@@ -119,7 +119,7 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 
 						
 						// increment the next_avail variable 
-						fdinfo.next_avail = (fdinfo.next_avail + 1) % 50;
+						fdinfo.next_avail = (fdinfo.next_avail + 1) % 10;
 
 						// if (unlikely(pkt_cnt == HEARTBEAT_N)) {
 						if (pkt_cnt == HEARTBEAT_N) {
@@ -137,7 +137,8 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 								RTE_LOG(DEBUG, DEFAULT_DEBUG, "%lu: %lu, moving sum: %lu\n", hb.heartbeat_id, (hb.hb_timestamp - (hb.heartbeat_id - 1) * hz), moving_sum);
 							}
 							fdinfo.ea = moving_sum / HEARTBEAT_N + (HEARTBEAT_N+1) * hz;
-							printf("putting the first estimate %lu\n", fdinfo.ea);
+							RTE_LOG(DEBUG, DEFAULT_DEBUG, "putting the first estimate %lu\n", fdinfo.ea);
+							RTE_LOG(DEBUG, DEFAULT_DEBUG, "the timer is wired to the value %lu\n", fdinfo.ea - receipt_time + safety_margin);
 							rte_timer_reset(tim, fdinfo.ea - receipt_time + safety_margin, SINGLE, lcore_id, timer1_cb, (void *)(fdinfo.ea - receipt_time + safety_margin));
 						} else if (pkt_cnt > HEARTBEAT_N){
 							// calculate the new estimeated arrival time 
@@ -145,23 +146,24 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 							RTE_LOG(DEBUG, DEFAULT_DEBUG, "FD: %lu th HB arriving, at time %lu, esti: %lu, evicted: %lu\n", pkt_cnt, receipt_time, fdinfo.ea, fdinfo.evicted_time);
 
 							// update the next_evicted variable
-							fdinfo.next_evicted = (fdinfo.next_evicted + 1) % 50;
+							fdinfo.next_evicted = (fdinfo.next_evicted + 1) % 10;
 
-							if (pkt_cnt == STOP_TIME){
-								// begin eval
-								FILE * result_file = fopen("output.txt", "a");
+							// if (pkt_cnt == STOP_TIME){
+							// 	// begin eval
+							// 	FILE * result_file = fopen("output.txt", "a");
 
-								if (result_file == NULL){
-									RTE_LOG(INFO, SYS_INFO, "Failed to open the file.\n");
-								}
-								fprintf(result_file, "the time it takes to start suspecting is %lu\n", fdinfo.ea - receipt_time + safety_margin);
-								fclose(result_file);
-								break;
-								// end eval
-							}
+							// 	if (result_file == NULL){
+							// 		RTE_LOG(INFO, SYS_INFO, "Failed to open the file.\n");
+							// 	}
+							// 	fprintf(result_file, "the time it takes to start suspecting is %lu\n", fdinfo.ea - receipt_time + safety_margin);
+							// 	fclose(result_file);
+							// 	break;
+							// 	// end eval
+							// }
 							
 							// rewire the timer to the next estimation of the arrival time
 							rte_timer_reset(tim, fdinfo.ea - receipt_time + safety_margin, SINGLE, lcore_id, timer1_cb, (void *)(fdinfo.ea - receipt_time + safety_margin));
+							RTE_LOG(DEBUG, DEFAULT_DEBUG, "rewiring the timer to %lu\n", fdinfo.ea - receipt_time + safety_margin);
 						} else {
 							RTE_LOG(DEBUG, DEFAULT_DEBUG, "too early to put an estimate, but the arrival time is %lu\n", receipt_time);
 							for (int i = 0; i < ARR_SIZE; i++){
