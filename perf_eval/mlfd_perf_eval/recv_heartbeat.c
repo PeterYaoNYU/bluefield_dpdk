@@ -13,6 +13,9 @@ uint64_t errors[ERROR_CONSIDERED];
 uint64_t error_idx = 0;
 uint64_t error_sum = 0;
 
+int current_false_positives = 200;
+int last_false_positives = 0;
+
 void keyInteruptHandler(int signal) {
     if (signal == SIGINT) {
         // Close the message queue
@@ -108,7 +111,7 @@ static void
 timer1_cb(struct rte_timer *tim, void *arg)
 {
 	unsigned lcore_id = rte_lcore_id();
-
+	current_false_positives++;
 	false_positive_cnt++;
 	// rewire the timer even for the suspected node
 	uint64_t rewired_amount = (uint64_t) arg;
@@ -276,7 +279,14 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 
 						if (pkt_cnt % HEARTBEAT_N == 0){
 							// send the data to the model for training
-							send_to_ml_model(fdinfo.arr_timestamp, send_mq, sizeof(fdinfo.arr_timestamp));
+							// send_to_ml_model(fdinfo.arr_timestamp, send_mq, sizeof(fdinfo.arr_timestamp));
+
+							if ((current_false_positives > last_false_positives * 1.3) || current_false_positives > 50){
+								send_to_ml_model(fdinfo.arr_timestamp, send_mq, sizeof(fdinfo.arr_timestamp));
+								printf("***************the model needs an update***************\n");
+							}
+							last_false_positives = current_false_positives;
+							current_false_positives = 0;
 						}
 						// printf("ready to infer? %d\n", ready_to_infer);
 						if (!ready_to_infer){
@@ -326,6 +336,8 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 							}
 							uint64_t current_time = rte_rdtsc();
 							if (next_arrival < current_time){
+								late_prediction_cnt++;
+								false_positive_cnt++;
 								printf("generate the prediction too late!!!\n");
 							} else {
 								printf("next_arrival: %ld, current time: %ld\n", next_arrival, current_time);
