@@ -23,13 +23,13 @@ import queue
 
 def custom_loss(y_true, y_pred):
     # Calculate the squared error between true and predicted values
-    squared_error = K.square(y_true - y_pred)  
+    squared_error = tf.square(y_true - y_pred)
     # Define a penalty factor for negative predictions
-    penalty_factor = 1000000  
-    # Apply the penalty factor to negative predictions
-    penalized_error = K.switch(y_pred < 0, squared_error * penalty_factor, squared_error)  
-    # Calculate the mean of the penalized errors
-    loss = K.mean(penalized_error)
+    penalty_factor = 1000000
+    # Apply the penalty factor to negative predictions using TensorFlow's `where` function
+    penalized_error = tf.where(y_pred - y_true < 0, squared_error * penalty_factor, squared_error)
+    # Calculate the mean of the penalized errors using TensorFlow's `reduce_mean` function
+    loss = tf.reduce_mean(penalized_error)
     return loss
 
 # convert an array of values into a dataset matrix
@@ -199,7 +199,7 @@ def train(param_queue):
             model = Sequential()
             model.add(LSTM(4, input_shape=(1, look_back)))
             model.add(Dense(1))
-            model.compile(loss='mean_squared_error', optimizer='adam', metrics=['accuracy'])
+            model.compile(loss=custom_loss, optimizer='adam', metrics=['accuracy'])
             model.fit(trainX, trainY, epochs=10, batch_size=1, verbose=2)
         
         # because python does not support parallel execution on multicores for threads
