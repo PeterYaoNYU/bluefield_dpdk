@@ -15,7 +15,7 @@ int lcore_mainloop_send_heartbeat(struct lcore_params *p)
 {   
 
     // this is the file that contains the receipt timestamps, allegedly in nanoseconds
-    FILE * traces = fopen("processed_trace1.log ", "r");
+    FILE * traces = fopen("processed_trace1.log", "r");
 
     if (traces == NULL){
         perror("Error opening traces");
