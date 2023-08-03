@@ -50,15 +50,15 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 	uint64_t tau = 0;
 	uint64_t u_prev = 0;
 	uint64_t u_new = 0;
-	uint64_t delay = 0;
-	uint64_t alpha = 0;
-	uint64_t var_prev = 0;
-	uint64_t var_new = 0;
-	uint64_t error = 0;
+	int64_t delay = 0;
+	int64_t alpha = 0;
+	int64_t var_prev = 0;
+	int64_t var_new = 0;
+	int64_t error = 0;
 
-	const int BETA = 1;
-	const int THETA = 4;
-	const float GAMMA  = 0.1;
+	int BETA = 1;
+	int THETA = 4;
+	int GAMMA_INVERSE = 10;
 
 		
 	general_stats_output = fopen("./output/general_stats.txt", "a");
@@ -158,11 +158,14 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 						fdinfo.next_avail = (fdinfo.next_avail + 1) % 10;
 
 						error = receipt_time - fdinfo.ea - delay;
-						delay = delay + GAMMA * error;
-						var_new = var_prev + GAMMA * (abs(error) - var_prev);
+						delay = delay + error / 10;
+						var_new = var_prev + (labs(error) - var_prev) / 10;
+						RTE_LOG(DEBUG, DEFAULT_DEBUG, "abs(error): %ld, var_prev: %ld, (abs(error) - var_prev) / 10: %ld\n", labs(error), var_prev, (labs(error) - var_prev) / 10);
 						var_prev = var_new;
 						alpha = BETA * delay + THETA * var_new;
 						safety_margin = alpha;
+
+						RTE_LOG(DEBUG, DEFAULT_DEBUG, "error: %ld, delay: %ld, var_new: %ld, alpha: %ld, safety_margin: %ld\n", error, delay, var_new, alpha, safety_margin);
 
 						if (pkt_cnt > HEARTBEAT_N){
 							// calculate the new estimeated arrival time 
@@ -189,13 +192,14 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 							rte_timer_reset(tim, fdinfo.ea - receipt_time + safety_margin, SINGLE, lcore_id, timer1_cb, (void *)(fdinfo.ea - receipt_time + safety_margin));
 							RTE_LOG(DEBUG, DEFAULT_DEBUG, "rewiring the timer to %lu\n", fdinfo.ea - receipt_time + safety_margin);
 						} else {
-							RTE_LOG(DEBUG, DEFAULT_DEBUG, "too early to put an estimate, but the arrival time is %lu\n", receipt_time);
+							RTE_LOG(DEBUG, DEFAULT_DEBUG, "too early to put an estimate, but the arrival time is %lu, pkt_cnt: %lu\n", receipt_time, pkt_cnt);
 							for (int i = 0; i < ARR_SIZE; i++){
 								RTE_LOG(DEBUG, DEFAULT_DEBUG, "%lu: %lu | \n", fdinfo.arr_timestamp[i].heartbeat_id, fdinfo.arr_timestamp[i].hb_timestamp);
 							}
-							u_new = receipt_time / (pkt_cnt+1) + pkt_cnt / (pkt_cnt+1) * u_prev;
+							u_new = receipt_time / pkt_cnt + (pkt_cnt - 1) / pkt_cnt * u_prev;
 							fdinfo.ea = u_new + (pkt_cnt + 1) / 2 * DELTA_I;
 							u_prev = u_new;
+							RTE_LOG(DEBUG, DEFAULT_DEBUG, "u_new: %ld\n", u_new);
 							RTE_LOG(DEBUG, DEFAULT_DEBUG, "the estimated arrival time is %lu\n", fdinfo.ea);
 						}
 
