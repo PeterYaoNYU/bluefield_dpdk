@@ -15,7 +15,7 @@ int lcore_mainloop_send_heartbeat(struct lcore_params *p)
 {   
 
     // this is the file that contains the receipt timestamps, allegedly in nanoseconds
-    FILE * traces = fopen("processed_trace1.log", "r");
+    FILE * traces = fopen("../../traces/processed_trace1.log", "r");
 
     if (traces == NULL){
         perror("Error opening traces");
@@ -42,7 +42,7 @@ int lcore_mainloop_send_heartbeat(struct lcore_params *p)
 
     //init mac
     struct rte_ether_addr s_addr = {{0x08, 0xc0, 0xeb, 0xd1, 0xfc, 0x5e}};
-    struct rte_ether_addr d_addr = {{0x08, 0xc0, 0xeb, 0xd1, 0xfc, 0x56}};
+    struct rte_ether_addr d_addr = {{0x08, 0xc0, 0xeb, 0xd1, 0xfc, 0x52}};
 
     //init IP header
     rte_be32_t s_ip_addr = string_to_ip("192.168.0.16");
@@ -87,10 +87,11 @@ int lcore_mainloop_send_heartbeat(struct lcore_params *p)
         pkts[i]->pkt_len = pkt_size;   
     }
 
-    if (!fgets(prev_recv_time_buffer, 256, traces)){
-        perror("Error reading traces");
-        rte_exit(EXIT_FAILURE, "Error reading traces\n");
+    if (fgets(prev_recv_time_buffer, 256, traces) != NULL){
+        printf("The time is not null: %s\n", prev_recv_time_buffer);
     }
+    printf("The time: %s\n", prev_recv_time_buffer);
+
     prev_recv_time = strtoull(prev_recv_time_buffer, NULL, 10);
 
     struct timer_args args = {
@@ -107,23 +108,33 @@ int lcore_mainloop_send_heartbeat(struct lcore_params *p)
 	/* Main loop. 8< */
 	while (1) { 
         rte_timer_manage();
-        if (!fgets(cur_recv_time_buffer, 256, traces)){
-            perror("Error reading traces");
-            rte_exit(EXIT_FAILURE, "Error reading traces\n");
+        if (fgets(cur_recv_time_buffer, 256, traces) != NULL){
+            printf("The time: %s", cur_recv_time_buffer);
+            // perror("Error reading traces");
+            // rte_exit(EXIT_FAILURE, "Error reading traces\n");
+        } else {
+            if (feof(traces)) {
+                printf("end of the trace file reached");
+                break;
+            }
         }
         cur_recv_time = strtoull(cur_recv_time_buffer, NULL, 10);
 
         interval = cur_recv_time - prev_recv_time;
 
+        printf("cur_recv_time: %lu, prev_recv_time: %lu, interval: %lu\n", cur_recv_time, prev_recv_time, interval);
+
         hb_id++;
 
         args.hb_id = hb_id;
 
-        int ret = rte_timer_reset(&timer, hz * interval / 1000000000,
-                          SINGLE, lcore_id, timer_callback, (void *)&args);
-        if (ret < 0) {
-            rte_exit(EXIT_FAILURE, "Error starting the timer\n");
-        }
+        // int ret = rte_timer_reset(&timer, hz * interval / 1000000000,
+        //                   SINGLE, lcore_id, timer_callback, (void *)&args);
+        // if (ret < 0) {
+        //     rte_exit(EXIT_FAILURE, "Error starting the timer\n");
+        // }
+        rte_delay_us_block(interval/1000);
+        lcore_send_heartbeat_pkt(p, hb_id, pkts);
 
         prev_recv_time = cur_recv_time;
 	}
