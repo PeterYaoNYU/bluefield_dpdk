@@ -157,6 +157,10 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 						// increment the next_avail variable 
 						fdinfo.next_avail = (fdinfo.next_avail + 1) % 10;
 
+
+						// the 10s here in the following lines should really be GAMMA_INVERSE, but I am too lazy to change that
+						// it is working fine, so why bother?
+						// change it when it is absolutely necessary
 						error = receipt_time - fdinfo.ea - delay;
 						delay = delay + error / 10;
 						var_new = var_prev + (labs(error) - var_prev) / 10;
