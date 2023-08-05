@@ -352,6 +352,10 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 							false_positive_cnt = 0;
 							late_prediction_cnt = 0;
 						}
+
+						if (pkt_cnt == 1000) {
+							return 0;
+						}
 					}
 				}
 			}

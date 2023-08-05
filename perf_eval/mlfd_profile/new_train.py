@@ -2,6 +2,13 @@
 # after training, it sends the parameters of the model to the inference process via IPC
 # which later make the 
 
+import posix_ipc
+import ctypes
+import struct
+# import pickle
+import multiprocessing
+import queue
+
 import numpy as np
 import tensorflow as tf
 from tensorflow import keras
@@ -14,12 +21,7 @@ import math
 import matplotlib.pyplot as plt
 import keras.backend as K
 
-import posix_ipc
-import ctypes
-import struct
-# import pickle
-import multiprocessing
-import queue
+
 
 def custom_loss(y_true, y_pred):
     # Calculate the squared error between true and predicted values

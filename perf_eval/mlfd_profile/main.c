@@ -22,6 +22,9 @@ int main(int argc, char *argv[])
     struct rx_params *rxp[NUM_RX_QUEUE];
     uint16_t portid;
 
+    system("sudo -E python3 ./new_train.py");
+    sleep(5);
+
     int ret = rte_eal_init(argc, argv);
     if (ret < 0)
         rte_exit(EXIT_FAILURE, "initlize fail!");
