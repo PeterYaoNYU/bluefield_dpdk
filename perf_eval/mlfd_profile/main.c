@@ -22,9 +22,6 @@ int main(int argc, char *argv[])
     struct rx_params *rxp[NUM_RX_QUEUE];
     uint16_t portid;
 
-    system("sudo -E python3 ./new_train.py");
-    sleep(5);
-
     int ret = rte_eal_init(argc, argv);
     if (ret < 0)
         rte_exit(EXIT_FAILURE, "initlize fail!");
@@ -83,11 +80,12 @@ int main(int argc, char *argv[])
             .fdinfo = &fdinfo,
             .t = &timer0
         };
-        rte_eal_remote_launch((lcore_function_t *)lcore_recv_heartbeat_pkt, (void *)&recv_arg, lcore_num++);
+        lcore_recv_heartbeat_pkt((void *)&recv_arg);
+        // rte_eal_remote_launch((lcore_function_t *)lcore_recv_heartbeat_pkt, (void *)&recv_arg, lcore_num++);
     }
 
 
-    rte_eal_wait_lcore(lcore_num - 1);
+    // rte_eal_wait_lcore(lcore_num - 1);
     return 0;
 }
 
