@@ -25,7 +25,7 @@ def custom_loss(y_true, y_pred):
     # Calculate the squared error between true and predicted values
     squared_error = tf.square(y_true - y_pred)
     # Define a penalty factor for negative predictions
-    penalty_factor = 1000000
+    penalty_factor = 100000
     # Apply the penalty factor to negative predictions using TensorFlow's `where` function
     penalized_error = tf.where(y_pred - y_true < 0, squared_error * penalty_factor, squared_error)
     # Calculate the mean of the penalized errors using TensorFlow's `reduce_mean` function
@@ -163,10 +163,10 @@ def train(param_queue):
 
     train_mq_name = "/train_data"
     queue_size = 200
-    message_size = ctypes.sizeof(ctypes.c_uint64) * queue_size
+    message_size = ctypes.sizeof(ctypes.c_uint64) *200
     train_mq = posix_ipc.MessageQueue(train_mq_name, flags = posix_ipc.O_CREAT, mode = 0o666, max_messages = queue_size, max_message_size = message_size)
     print("ok")
-     
+    
     while(True):
         if (first_train):
             while (train_data_count < 200):

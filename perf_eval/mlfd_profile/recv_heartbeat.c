@@ -354,6 +354,14 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 						}
 
 						if (pkt_cnt == 1000) {
+							mq_close(send_mq);
+							mq_close(control_mq);
+							mq_close(infer_data_mq);
+							mq_close(result_mq);
+							mq_unlink("ctrl_msg");
+							mq_unlink("infer_data");
+							mq_unlink("result_mq");
+							mq_unlink("train_data");
 							return 0;
 						}
 					}
