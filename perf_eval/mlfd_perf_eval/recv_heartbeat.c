@@ -316,7 +316,7 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 									printf("generate the prediction too late!!!\n");
 								} else {
 									printf("next_arrival: %ld, current time: %ld\n", next_arrival, current_time);
-									rte_timer_reset(tim, next_arrival - current_time + error_sum/ERROR_CONSIDERED, SINGLE, lcore_id, timer1_cb, (void *)(next_arrival - current_time));
+									rte_timer_reset(tim, next_arrival - current_time, SINGLE, lcore_id, timer1_cb, (void *)(next_arrival - current_time));
 								}
 							} else if (bytes_received == -1){
 								perror("ctrl_message");
