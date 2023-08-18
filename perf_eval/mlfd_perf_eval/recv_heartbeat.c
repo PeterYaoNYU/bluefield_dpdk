@@ -6,6 +6,7 @@ mqd_t send_mq;
 // for stats
 FILE * comp_time_output;
 FILE * general_stats_output;
+FILE * detection_time;
 uint64_t false_positive_cnt = 0;
 uint64_t late_prediction_cnt = 0;
 
@@ -156,6 +157,9 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 	general_stats_output = fopen("./output/general_stats.txt", "a");
 	fprintf(general_stats_output, "*******************New Run*******************\n");
 
+	detection_time = fopen("./output/detection_time.txt", "a");
+	fprintf(detection_time, "*******************New Run*******************\n");	
+
 
 	uint64_t next_arrival;
 	// need to make a translation between the number of cycles per second and the number of seconds of our EA
@@ -271,6 +275,7 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 						fdinfo.evicted_time = fdinfo.arr_timestamp[fdinfo.next_evicted];
 
 						printf("storing the receipt time into index: %d, pkt_cnt: %ld, time: %ld\n", fdinfo.next_avail, pkt_cnt, receipt_time);
+						fprintf(detection_time, "receipt: %ld, %ld\n", pkt_cnt, receipt_time);
 
 						fdinfo.arr_timestamp[fdinfo.next_avail] = receipt_time;
 						
@@ -317,6 +322,7 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 								} else {
 									printf("next_arrival: %ld, current time: %ld\n", next_arrival, current_time);
 									rte_timer_reset(tim, next_arrival - current_time, SINGLE, lcore_id, timer1_cb, (void *)(next_arrival - current_time));
+									fprintf(detection_time, "prediction: %ld, %ld\n", pkt_cnt+1, next_arrival);
 								}
 							} else if (bytes_received == -1){
 								perror("ctrl_message");
@@ -342,6 +348,7 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 							} else {
 								printf("next_arrival: %ld, current time: %ld\n", next_arrival, current_time);
 								rte_timer_reset(tim, next_arrival - current_time, SINGLE, lcore_id, timer1_cb, (void *)(next_arrival - current_time));
+								fprintf(detection_time, "prediction: %ld, %ld\n", pkt_cnt+1, next_arrival);
 							}
 						}
 						// write the stats every 10000 heartbeats
