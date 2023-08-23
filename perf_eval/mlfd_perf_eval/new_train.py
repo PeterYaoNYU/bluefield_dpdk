@@ -25,7 +25,7 @@ def custom_loss(y_true, y_pred):
     # Calculate the squared error between true and predicted values
     squared_error = tf.square(y_true - y_pred)
     # Define a penalty factor for negative predictions
-    penalty_factor = 1000000
+    penalty_factor = 100
     # Apply the penalty factor to negative predictions using TensorFlow's `where` function
     penalized_error = tf.where(y_pred - y_true < 0, squared_error * penalty_factor, squared_error)
     # Calculate the mean of the penalized errors using TensorFlow's `reduce_mean` function

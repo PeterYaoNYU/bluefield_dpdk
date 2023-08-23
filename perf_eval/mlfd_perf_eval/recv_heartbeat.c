@@ -7,6 +7,8 @@ mqd_t send_mq;
 FILE * comp_time_output;
 FILE * general_stats_output;
 FILE * detection_time;
+FILE * train_log;
+FILE * late_prediction_log;
 uint64_t false_positive_cnt = 0;
 uint64_t late_prediction_cnt = 0;
 
@@ -157,9 +159,14 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 	general_stats_output = fopen("./output/general_stats.txt", "a");
 	fprintf(general_stats_output, "*******************New Run*******************\n");
 
-	detection_time = fopen("./output/detection_time.txt", "a");
+	detection_time = fopen("./output/detection_time_traces5_always_update.txt", "a");
 	fprintf(detection_time, "*******************New Run*******************\n");	
+	
+	train_log = fopen("./output/train_log.txt", "a");
+	fprintf(train_log, "*******************New Run*******************\n");
 
+	late_prediction_log = fopen("./output/late_prediction_log.txt", "a");
+	fprintf(late_prediction_log, "*******************New Run*******************\n");
 
 	uint64_t next_arrival;
 	// need to make a translation between the number of cycles per second and the number of seconds of our EA
@@ -286,10 +293,11 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 							// send the data to the model for training
 							// send_to_ml_model(fdinfo.arr_timestamp, send_mq, sizeof(fdinfo.arr_timestamp));
 
-							if ((current_false_positives > last_false_positives * 1.3) || current_false_positives > 50){
-								send_to_ml_model(fdinfo.arr_timestamp, send_mq, sizeof(fdinfo.arr_timestamp));
-								printf("***************the model needs an update***************\n");
-							}
+							// if ((current_false_positives > last_false_positives * 1.2) || current_false_positives > 35){
+							send_to_ml_model(fdinfo.arr_timestamp, send_mq, sizeof(fdinfo.arr_timestamp));
+								// printf("***************the model needs an update***************\n");
+							fprintf(detection_time, "pkt_cnt: %ld, *********************************************the model updates\n", pkt_cnt);
+							// }
 							last_false_positives = current_false_positives;
 							current_false_positives = 0;
 						}
@@ -341,10 +349,12 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 								next_arrival = recv_prediction(result_mq, pkt_cnt);
 							}
 							uint64_t current_time = rte_rdtsc();
+							fprintf(comp_time_output, "%lu\n", current_time - receipt_time);
 							if (next_arrival < current_time){
 								late_prediction_cnt++;
 								false_positive_cnt++;
 								printf("generate the prediction too late!!!\n");
+								fprintf(late_prediction_log, "%lu\n", pkt_cnt);
 							} else {
 								printf("next_arrival: %ld, current time: %ld\n", next_arrival, current_time);
 								rte_timer_reset(tim, next_arrival - current_time, SINGLE, lcore_id, timer1_cb, (void *)(next_arrival - current_time));
