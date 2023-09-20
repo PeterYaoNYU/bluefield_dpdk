@@ -11,7 +11,7 @@
 #define RESULT_MQ_NAME  "/result_mq"
 #define MAX_RECV_BUFFER_SIZE (sizeof(uint64_t) * 2)
 
-#define ERROR_CONSIDERED 30
+#define ERROR_CONSIDERED 20
 
 int lcore_recv_heartbeat_pkt(struct recv_arg *);
 

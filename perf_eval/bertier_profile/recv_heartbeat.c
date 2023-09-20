@@ -212,7 +212,7 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 							fflush(general_stats_output);
 							false_positive_cnt = 0;
 						}
-						if (pkt_cnt == 1000){
+						if (pkt_cnt == 100000){
 							return 0;
 						}
 					}
