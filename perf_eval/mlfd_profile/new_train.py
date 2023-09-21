@@ -2,13 +2,6 @@
 # after training, it sends the parameters of the model to the inference process via IPC
 # which later make the 
 
-import posix_ipc
-import ctypes
-import struct
-# import pickle
-import multiprocessing
-import queue
-
 import numpy as np
 import tensorflow as tf
 from tensorflow import keras
@@ -21,13 +14,18 @@ import math
 import matplotlib.pyplot as plt
 import keras.backend as K
 
-
+import posix_ipc
+import ctypes
+import struct
+# import pickle
+import multiprocessing
+import queue
 
 def custom_loss(y_true, y_pred):
     # Calculate the squared error between true and predicted values
     squared_error = tf.square(y_true - y_pred)
     # Define a penalty factor for negative predictions
-    penalty_factor = 1000000
+    penalty_factor = 1000
     # Apply the penalty factor to negative predictions using TensorFlow's `where` function
     penalized_error = tf.where(y_pred - y_true < 0, squared_error * penalty_factor, squared_error)
     # Calculate the mean of the penalized errors using TensorFlow's `reduce_mean` function
@@ -101,9 +99,9 @@ def inference(param_queue, infer_mq):
         # Interpret the received message as an array of uint64_t
         # plus one for matching request with response
         received_array = struct.unpack(f'{look_back+1}Q', message)
-        print("&&&&&&&&&&&&&&&&&&&&&&&&&&&")
-        print(received_array)
-        print("&&&&&&&&&&&&&&&&&&&&&&&&&&&")
+        # print("&&&&&&&&&&&&&&&&&&&&&&&&&&&")
+        # print(received_array)
+        # print("&&&&&&&&&&&&&&&&&&&&&&&&&&&")
         
         # now making inference: exclude the first element, because it is for matching request with response
         pkt_cnt_id = received_array[0]
@@ -165,10 +163,10 @@ def train(param_queue):
 
     train_mq_name = "/train_data"
     queue_size = 200
-    message_size = ctypes.sizeof(ctypes.c_uint64) * queue_size
+    message_size = ctypes.sizeof(ctypes.c_uint64) *200
     train_mq = posix_ipc.MessageQueue(train_mq_name, flags = posix_ipc.O_CREAT, mode = 0o666, max_messages = queue_size, max_message_size = message_size)
     print("ok")
-     
+    
     while(True):
         if (first_train):
             while (train_data_count < 200):
@@ -177,7 +175,7 @@ def train(param_queue):
                 all_data = all_data + list(received_array)
                 train_data_count = train_data_count + len(received_array)
                 print("length: ", len(received_array))
-                print(all_data)
+                # print(all_data)
             # first_train = False
         else:
             # Receive message from the queue

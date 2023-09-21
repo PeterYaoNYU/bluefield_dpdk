@@ -1,6 +1,7 @@
 #include "recv_heartbeat.h"
 
 FILE * general_stats_output;
+FILE * detection_time;
 uint64_t false_positive_cnt = 0;
 
 static void
@@ -47,6 +48,9 @@ timer1_cb(struct rte_timer *tim, void *arg)
 // int lcore_recv_heartbeat_pkt(struct lcore_params *p, struct fd_info * fdinfo, struct rte_timer * tim)
 int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 {
+	detection_time = fopen("./output/detection_time_traces5_always_update.txt", "a");
+	fprintf(detection_time, "*******************New Run*******************\n");	
+
 	uint64_t tau = 0;
 	uint64_t u_prev = 0;
 	uint64_t u_new = 0;
@@ -147,6 +151,7 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 
 						// printf("storing the receipt time into index: %d\n", fdinfo.next_avail);
 						RTE_LOG(INFO, SYS_INFO, "Packet reception: %lu\n", receipt_time);
+						fprintf(detection_time, "receipt: %ld, %ld\n", pkt_cnt, receipt_time);
 
 						// fdinfo.arr_timestamp[fdinfo.next_avail] = (struct hb_timestamp) { .heartbeat_id = pkt_cnt, .hb_timestamp = receipt_time};
 						fdinfo.arr_timestamp[fdinfo.next_avail].heartbeat_id = pkt_cnt;
@@ -175,6 +180,8 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 							// calculate the new estimeated arrival time 
 							fdinfo.ea = fdinfo.ea + ((receipt_time - (fdinfo.evicted_time)) / HEARTBEAT_N);
 							RTE_LOG(DEBUG, DEFAULT_DEBUG, "FD: %lu th HB arriving, at time %lu, esti: %lu, evicted: %lu\n", pkt_cnt, receipt_time, fdinfo.ea, fdinfo.evicted_time);
+							fprintf(detection_time, "prediction: %ld, %ld\n", pkt_cnt+1, fdinfo.ea+safety_margin);
+
 
 							// update the next_evicted variable
 							fdinfo.next_evicted = (fdinfo.next_evicted + 1) % 10;

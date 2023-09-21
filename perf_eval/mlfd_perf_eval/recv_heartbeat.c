@@ -6,12 +6,21 @@ mqd_t send_mq;
 // for stats
 FILE * comp_time_output;
 FILE * general_stats_output;
+FILE * detection_time;
+FILE * train_log;
+FILE * late_prediction_log;
 uint64_t false_positive_cnt = 0;
 uint64_t late_prediction_cnt = 0;
 
 uint64_t errors[ERROR_CONSIDERED];
 uint64_t error_idx = 0;
 uint64_t error_sum = 0;
+
+// uint64_t last_prediction = 0;
+int prediction_difference[HEARTBEAT_N];
+int difference_idx = 0;
+int cur_difference_sum = 0;
+int last_difference_sum = 0;
 
 int current_false_positives = 200;
 int last_false_positives = 0;
@@ -98,7 +107,9 @@ int send_to_infer(uint64_t* ts, mqd_t mq_desc, int next_idx, uint64_t pkt_cnt){
 		// printf("cloning the %d th element to infer send, with array idx %d\n", i, array_index);
 		send_buffer[LOOK_BACK-i + 1] = ts[array_index];
 	}
+	printf("sending the message to the infer module\n");
 	int send_status = mq_send(mq_desc, (const char*)send_buffer, sizeof(send_buffer), 0);
+	printf("message sent to infer");
 	if (send_status == -1) {
         perror("mq_send");
         fprintf(stderr, "Error: %s\n", strerror(errno));
@@ -156,8 +167,16 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 	general_stats_output = fopen("./output/general_stats.txt", "a");
 	fprintf(general_stats_output, "*******************New Run*******************\n");
 
+	detection_time = fopen("./output/detection_time_traces7_dynamic_update_penalty_1000.txt", "a");
+	fprintf(detection_time, "*******************New Run*******************\n");	
+	
+	train_log = fopen("./output/train_log.txt", "a");
+	fprintf(train_log, "*******************New Run*******************\n");
 
-	uint64_t next_arrival;
+	late_prediction_log = fopen("./output/late_prediction_log.txt", "a");
+	fprintf(late_prediction_log, "*******************New Run*******************\n");
+
+	uint64_t next_arrival = 0;
 	// need to make a translation between the number of cycles per second and the number of seconds of our EA
 	uint64_t hz = rte_get_timer_hz();
 	printf("the hz is %lu\n", hz);
@@ -268,9 +287,22 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 						// update the Chen's estimation based on the packet received...
 						struct payload * obj= (struct payload *)(udp_hdr + 1);
 						uint64_t receipt_time = rte_rdtsc();
+
+						// update the prediction_arrival difference list
+						// this is used to retrain the model when the detection time is going high
+						if (next_arrival != 0){
+							cur_difference_sum -= prediction_difference[difference_idx];
+							prediction_difference[difference_idx] = (int)(next_arrival - receipt_time);	
+							printf("difference: %d\n", prediction_difference[difference_idx]);
+							cur_difference_sum += prediction_difference[difference_idx];
+							difference_idx = (difference_idx + 1) % HEARTBEAT_N;
+							
+						}
+
 						fdinfo.evicted_time = fdinfo.arr_timestamp[fdinfo.next_evicted];
 
 						printf("storing the receipt time into index: %d, pkt_cnt: %ld, time: %ld\n", fdinfo.next_avail, pkt_cnt, receipt_time);
+						fprintf(detection_time, "receipt: %ld, %ld\n", pkt_cnt, receipt_time);
 
 						fdinfo.arr_timestamp[fdinfo.next_avail] = receipt_time;
 						
@@ -281,12 +313,16 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 							// send the data to the model for training
 							// send_to_ml_model(fdinfo.arr_timestamp, send_mq, sizeof(fdinfo.arr_timestamp));
 
-							if ((current_false_positives > last_false_positives * 1.3) || current_false_positives > 50){
+							if ((current_false_positives > last_false_positives * 1.2) || current_false_positives > 35 || (cur_difference_sum > last_difference_sum * 1.2) || (cur_difference_sum > 4000000000)){
 								send_to_ml_model(fdinfo.arr_timestamp, send_mq, sizeof(fdinfo.arr_timestamp));
 								printf("***************the model needs an update***************\n");
+								fprintf(detection_time, "pkt_cnt: %ld, *********************************************the model updates\n", pkt_cnt);
 							}
 							last_false_positives = current_false_positives;
 							current_false_positives = 0;
+
+							last_difference_sum = cur_difference_sum;
+							cur_difference_sum = 0;
 						}
 						// printf("ready to infer? %d\n", ready_to_infer);
 						if (!ready_to_infer){
@@ -316,7 +352,8 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 									printf("generate the prediction too late!!!\n");
 								} else {
 									printf("next_arrival: %ld, current time: %ld\n", next_arrival, current_time);
-									rte_timer_reset(tim, next_arrival - current_time + error_sum/ERROR_CONSIDERED, SINGLE, lcore_id, timer1_cb, (void *)(next_arrival - current_time));
+									rte_timer_reset(tim, next_arrival - current_time, SINGLE, lcore_id, timer1_cb, (void *)(next_arrival - current_time));
+									fprintf(detection_time, "prediction: %ld, %ld\n", pkt_cnt+1, next_arrival);
 								}
 							} else if (bytes_received == -1){
 								perror("ctrl_message");
@@ -335,13 +372,18 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 								next_arrival = recv_prediction(result_mq, pkt_cnt);
 							}
 							uint64_t current_time = rte_rdtsc();
+							fprintf(comp_time_output, "%lu\n", current_time - receipt_time);
 							if (next_arrival < current_time){
 								late_prediction_cnt++;
 								false_positive_cnt++;
 								printf("generate the prediction too late!!!\n");
+								fprintf(late_prediction_log, "%lu\n", pkt_cnt);
+								fflush(late_prediction_log);
+								printf("prediction gotten, moving on\n");
 							} else {
 								printf("next_arrival: %ld, current time: %ld\n", next_arrival, current_time);
 								rte_timer_reset(tim, next_arrival - current_time, SINGLE, lcore_id, timer1_cb, (void *)(next_arrival - current_time));
+								fprintf(detection_time, "prediction: %ld, %ld\n", pkt_cnt+1, next_arrival);
 							}
 						}
 						// write the stats every 10000 heartbeats
