@@ -107,7 +107,9 @@ int send_to_infer(uint64_t* ts, mqd_t mq_desc, int next_idx, uint64_t pkt_cnt){
 		// printf("cloning the %d th element to infer send, with array idx %d\n", i, array_index);
 		send_buffer[LOOK_BACK-i + 1] = ts[array_index];
 	}
+	printf("sending the message to the infer module\n");
 	int send_status = mq_send(mq_desc, (const char*)send_buffer, sizeof(send_buffer), 0);
+	printf("message sent to infer");
 	if (send_status == -1) {
         perror("mq_send");
         fprintf(stderr, "Error: %s\n", strerror(errno));
@@ -377,6 +379,7 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 								printf("generate the prediction too late!!!\n");
 								fprintf(late_prediction_log, "%lu\n", pkt_cnt);
 								fflush(late_prediction_log);
+								printf("prediction gotten, moving on\n");
 							} else {
 								printf("next_arrival: %ld, current time: %ld\n", next_arrival, current_time);
 								rte_timer_reset(tim, next_arrival - current_time, SINGLE, lcore_id, timer1_cb, (void *)(next_arrival - current_time));
