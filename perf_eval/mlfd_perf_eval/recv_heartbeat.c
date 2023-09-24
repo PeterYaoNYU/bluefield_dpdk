@@ -88,8 +88,8 @@ int send_to_infer(uint64_t* ts, mqd_t mq_desc, int next_idx, uint64_t pkt_cnt){
 	int i;
 	int offset = LOOK_BACK - 1;
 
-	struct mq_attr mq_attr;
-	mq_getattr(mq_desc, &mq_attr);
+	// struct mq_attr mq_attr;
+	// mq_getattr(mq_desc, &mq_attr);
 	// printf("the max message size in bytes of the INFER mq is %ld\n", mq_attr.mq_msgsize);
 
 	// to match things up   
@@ -107,9 +107,9 @@ int send_to_infer(uint64_t* ts, mqd_t mq_desc, int next_idx, uint64_t pkt_cnt){
 		// printf("cloning the %d th element to infer send, with array idx %d\n", i, array_index);
 		send_buffer[LOOK_BACK-i + 1] = ts[array_index];
 	}
-	printf("sending the message to the infer module\n");
+	printf("send_to_infer: sending the message to the infer module\n");
 	int send_status = mq_send(mq_desc, (const char*)send_buffer, sizeof(send_buffer), 0);
-	printf("message sent to infer");
+	printf("send_toinfer: message sent to infer\n");
 	if (send_status == -1) {
         perror("mq_send");
         fprintf(stderr, "Error: %s\n", strerror(errno));
@@ -164,16 +164,16 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 	}
 	fprintf(comp_time_output, "*******************New Run*******************\n");
 
-	general_stats_output = fopen("./output/general_stats.txt", "a");
+	general_stats_output = fopen("./output/general_stats_async.txt", "a");
 	fprintf(general_stats_output, "*******************New Run*******************\n");
 
-	detection_time = fopen("./output/detection_time_traces7_dynamic_update_penalty_1000.txt", "a");
+	detection_time = fopen("./output/detection_time_traces8_async_test1_1000.txt", "a");
 	fprintf(detection_time, "*******************New Run*******************\n");	
 	
-	train_log = fopen("./output/train_log.txt", "a");
+	train_log = fopen("./output/train_log_async.txt", "a");
 	fprintf(train_log, "*******************New Run*******************\n");
 
-	late_prediction_log = fopen("./output/late_prediction_log.txt", "a");
+	late_prediction_log = fopen("./output/late_prediction_log_async.txt", "a");
 	fprintf(late_prediction_log, "*******************New Run*******************\n");
 
 	uint64_t next_arrival = 0;
@@ -366,11 +366,16 @@ int lcore_recv_heartbeat_pkt(struct recv_arg * recv_arg)
 							// printf("!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
 							// printf("ready to infer\n");
 							// printf("!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
+							printf("main loop: sending the inference data\n");
 							send_to_infer(fdinfo.arr_timestamp, infer_data_mq, fdinfo.next_avail, pkt_cnt);
+							printf("main loop: send success, receiving the prediction\n");
 							next_arrival = recv_prediction(result_mq, pkt_cnt);
+							printf("main loop: prediction received\n");
 							while (next_arrival == 0){
+								printf("main loop: prediction mismatch, receiving again\n");
 								next_arrival = recv_prediction(result_mq, pkt_cnt);
 							}
+							printf("main loop: prediction matched\n");
 							uint64_t current_time = rte_rdtsc();
 							fprintf(comp_time_output, "%lu\n", current_time - receipt_time);
 							if (next_arrival < current_time){
