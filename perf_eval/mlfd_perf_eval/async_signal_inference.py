@@ -30,13 +30,17 @@ import threading
 from sync_server import address, authkey
 from multiprocessing.managers import BaseManager
 
-BaseManager.register("get_queue")
-BaseManager.register("get_event")
-manager = BaseManager(authkey=authkey, address=address)
-manager.connect()
+import os
+import sys
 
-param_queue = manager.get_queue()
-param_event = manager.get_event()
+# BaseManager.register("get_queue")
+# BaseManager.register("get_event")
+# manager = BaseManager(authkey=authkey, address=address)
+# manager.connect()
+
+# param_queue = manager.get_queue()
+# param_event = manager.get_event()
+import pickle
 
 
 MY_SIGNAL = signal.SIGUSR2
@@ -67,6 +71,8 @@ message_size = (look_back+1) * ctypes.sizeof(ctypes.c_uint64)
 print("the message size of the " + str(message_size))
 infer_mq = posix_ipc.MessageQueue(infer_mq_name, flags = posix_ipc.O_CREAT, mode = 0o666, max_messages = queue_size, max_message_size = message_size)
 
+param_mq_name = "/parameters"
+param_mq = posix_ipc.MessageQueue(param_mq_name, flags = posix_ipc.O_CREAT, mode = 0o666)
 
 infer_mq.request_notification(MY_SIGNAL)
 
@@ -76,43 +82,43 @@ infer_model.add(LSTM(4, input_shape=(1, look_back)))
 infer_model.add(Dense(1))
 
 # this lock is to prevent concurrent access to the parameters of the model
-param_lock = threading.Lock()
+# param_lock = threading.Lock()
 
 def handle_signal(signum, frame):
-    print("signal received")
+    os.write(sys.stdout.fileno(), b"handle_signal: signal received\n")
+    # print("handle_signal: signal received")
     while True: 
         try:
+            os.write(sys.stdout.fileno(), b"handle_signal: trying to receive a message from the infer queue\n")
+            # print("handle_signal: trying to receive a message from the infer queue")
             message, _ = infer_mq.receive(timeout = 0)
-            print("received a message from the infer queue")
-            inference(message)
             infer_mq.request_notification(MY_SIGNAL)
+            os.write(sys.stdout.fileno(), b"handle_signal: received a message from the infer queue\n")
+            os.write(sys.stdout.fileno(), b"handle_signal: notification requestes\n")
+            # print("handle_signal: received a message from the infer queue")
+            inference(message)
+            os.write(sys.stdout.fileno(), b"handle_signal: inference done\n")
         except posix_ipc.BusyError:
+            os.write(sys.stdout.fileno(), b"handle_signal: no message in the infer queue\n")
             break
+    os.write(sys.stdout.fileno(), b"handle_signal: return\n")
+    return
     
 def param_consumer():
     inference_ready=False
-    signal.siginterrupt(signal.SIGUSR2, False)
+    # signal.siginterrupt(signal.SIGUSR2, False)
     while True:
-        param_event.wait()
-        model_params = param_queue.get()
-        param_lock.acquire()
-        infer_model.set_weights(model_params)
+        message , _ = param_mq.receive()
+        print("param_consumer: get param from queue")
+        received_model_parameters = pickle.loads(message)
+        infer_model.set_weights(received_model_parameters)
         if not inference_ready:
             inference_ready = True
             # send 1 to DPDK to indicate that I am ready to do inference
             number = 1
             ctrl_mq.send(number.to_bytes(4, byteorder='little'))
+            print("param_consumer: send 1 to DPDK to indicate that I am ready to do inference")
             
-        print("get param from queue, event notification get")
-        param_lock.release()
-        # print("************** wait param")
-        # model_params = param_queue.get()
-        # print("!!!!!!!!!!!!!! get param")
-        # if (model_params):
-        #     param_lock.acquire()
-        #     infer_model.set_weights(model_params)
-        #     param_lock.release()
-
 # def ctrl_c_handler(signum, frame):
 #     profiler.disable()
 #     # profiler.print_stats(sort="cumulative")
@@ -136,8 +142,8 @@ def create_dataset(dataset, look_back=1):
     return np.array(dataX), np.array(dataY)
 
 def inference(message):
-    print("waiting to acquire the lock")
-    param_lock.acquire()
+    # print("inference: waiting to acquire the lock")
+    # param_lock.acquire()
     
     received_array = struct.unpack(f'{look_back+1}Q', message)
     print("&&&&&&&&&&&&&&&&&&&&&&&&&&&")
@@ -157,21 +163,22 @@ def inference(message):
     dataset = np.reshape(dataset, (1, 1, dataset.shape[0]))
     
     # make predictions
+    print("inference: making inference")
     next_arrival = infer_model.predict(dataset)
-    print("next arrival (before scaling back): ", next_arrival)
+    print("inference: next arrival (before scaling back): ", next_arrival)
         
     # invert predictions
     next_arrival = next_arrival * (end - start) + start
     
-    print("next arrival (after scaling back): ", next_arrival[0][0])
+    print("inference: next arrival (after scaling back): ", next_arrival[0][0])
     next_arrival = int(next_arrival.item())
     
     # TODO send the result back to dpdk
     packed_next_arrival_ts = struct.pack("QQ", next_arrival, pkt_cnt_id)
     result_mq.send(packed_next_arrival_ts)
     
-    param_lock.release()
-    print("param lock released")
+    # param_lock.release()
+    # print("inference: param lock released")
     
     
 def data_preprocess(all_data):
@@ -186,4 +193,5 @@ if __name__ == "__main__":
     model_param_thread = threading.Thread(target=param_consumer)
     model_param_thread.start()
     while True:
-        time.sleep(3600)
+        time.sleep(1)
+        handle_signal(MY_SIGNAL, None)

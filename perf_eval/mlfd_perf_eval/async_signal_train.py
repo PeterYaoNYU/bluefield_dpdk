@@ -25,19 +25,21 @@ import keras.backend as K
 import cProfile
 import signal
 
-from sync_server import address, authkey
-from multiprocessing.managers import BaseManager
+# from sync_server import address, authkey
+# from multiprocessing.managers import BaseManager
 
-BaseManager.register("get_queue")
-BaseManager.register("get_event")
+# BaseManager.register("get_queue")
+# BaseManager.register("get_event")
 
-manager = BaseManager(authkey=authkey, address=address)
-manager.connect()
+# manager = BaseManager(authkey=authkey, address=address)
+# manager.connect()
 
-param_queue= manager.get_queue()
-param_event = manager.get_event()
+# param_queue= manager.get_queue()
+# param_event = manager.get_event()
 
 # profiler = cProfile.Profile() 
+
+import pickle
 
 MY_SIGNAL = signal.SIGUSR1
 
@@ -48,14 +50,15 @@ first_train = True
 train_mq_name = "/train_data"
 queue_size = 200
 message_size = ctypes.sizeof(ctypes.c_uint64) * queue_size
-train_mq = posix_ipc.MessageQueue(train_mq_name, flags = posix_ipc.O_CREAT, mode = 0o666, max_messages = queue_size, max_message_size = message_size)
+train_mq = posix_ipc.MessageQueue(train_mq_name, flags = posix_ipc.O_CREAT, mode = 0o666)
 print("ok setting up the training data msg queue")
 
 train_mq.request_notification(MY_SIGNAL)
 
 # manager for event and the queue
 
-
+param_mq_name = "/parameters"
+param_mq = posix_ipc.MessageQueue(param_mq_name, flags = posix_ipc.O_CREAT, mode = 0o666)
 
 def custom_loss(y_true, y_pred):
     # Calculate the squared error between true and predicted values
@@ -95,8 +98,9 @@ def train(training_data):
     trainX, trainY= data_preprocess(all_data)
     train_model.fit(trainX, trainY, epochs=10, batch_size=1, verbose=2)
     model_params = train_model.get_weights()    
-    param_queue.put(model_params)
-    param_event.set()
+    serialized_model_params = pickle.dumps(model_params)
+    param_mq.send(serialized_model_params)
+    # param_event.set()
     print("************** put param to queue, event set")
 
     # # do the clean up of the resources that we have opened
