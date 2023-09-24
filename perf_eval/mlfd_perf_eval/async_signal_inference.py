@@ -19,7 +19,6 @@ from keras.layers import LSTM
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.metrics import mean_squared_error
 import math
-import matplotlib.pyplot as plt
 import keras.backend as K
 
 import cProfile
@@ -27,8 +26,8 @@ import signal
 
 import threading
 
-from sync_server import address, authkey
-from multiprocessing.managers import BaseManager
+# from sync_server import address, authkey
+# from multiprocessing.managers import BaseManager
 
 import os
 import sys
